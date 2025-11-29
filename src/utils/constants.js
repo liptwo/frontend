@@ -1,11 +1,11 @@
 /* eslint-disable no-undef */
 
-let apiRoot = 'http://localhost:8017/v1'
+let apiRoot = 'https://beremarket.onrender.com/v1'
 if (process.env.BUILD_MODE === 'dev') {
-  apiRoot = 'http://localhost:8017/v1'
+  apiRoot = 'https://beremarket.onrender.com/v1'
 }
 if (process.env.BUILD_MODE === 'production') {
-  apiRoot = '/v1'
+  apiRoot = 'https://beremarket.onrender.com/v1'
 }
 export const API_ROOT = apiRoot
 
