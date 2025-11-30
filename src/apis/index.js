@@ -81,6 +81,14 @@ export const getListingsAPI = async (params) => {
   return res.data
 }
 
+export const getAdminListingsAPI = async (params) => {
+  // API này dành cho admin, sử dụng authorizedAxiosInstance
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings/admin`, {
+    params
+  })
+  return res.data
+}
+
 export const searchListingsAPI = async (params) => {
   const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings`, {
     params
@@ -107,6 +115,14 @@ export const createListingAPI = async (data) => {
 export const updateListingAPI = async (id, data) => {
   const res = await authorizedAxiosInstance.put(
     `${API_ROOT}/listings/${id}`,
+    data
+  )
+  return res.data
+}
+
+export const updateListingStatusAPI = async (id, data) => {
+  const res = await authorizedAxiosInstance.patch(
+    `${API_ROOT}/listings/${id}/status`,
     data
   )
   return res.data

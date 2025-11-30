@@ -4,12 +4,22 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { Sidebar } from '@/components/commons/admin'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/useAuthStore'
+
 export default function AdminLayout() {
-  const { user, loading } = useAuthStore()
+  const { user, loading, refresh } = useAuthStore()
+  const [isInitializing, setIsInitializing] = useState(true)
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  if (loading) {
+  useEffect(() => {
+    const initializeAuth = async () => {
+      await refresh() // Cố gắng làm mới token và lấy thông tin user
+      setIsInitializing(false)
+    }
+    initializeAuth()
+  }, [refresh])
+
+  if (loading || isInitializing) {
     return (
       <div
         style={{
@@ -24,7 +34,7 @@ export default function AdminLayout() {
     )
   }
 
-  if (!user && user?.role !== 'admin' && !loading) {
+  if (!user || user?.role !== 'admin') {
     console.log(user?.role)
     return <Navigate to='/' />
   }

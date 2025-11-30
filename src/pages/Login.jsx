@@ -209,11 +209,11 @@ function Login() {
         </form>
 
         {/* Divider */}
-        <div className='flex items-center my-6 text-gray-800 text-md'>
+        {/* <div className='flex items-center my-6 text-gray-800 text-md'>
           <hr className='flex-grow border-gray-400' />
           <span className='px-2 text-md font-medium'>Hoặc đăng nhập bằng</span>
           <hr className='flex-grow border-gray-400' />
-        </div>
+        </div> */}
 
         {/* Google Login */}
         {/* <div className='flex flex-row justify-between gap-3'>

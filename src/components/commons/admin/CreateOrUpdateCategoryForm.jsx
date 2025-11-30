@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { createCategoryAPI, updateCategoryAPI } from '@/apis'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,52 +10,79 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-// import { createCategoryAPI, updateCategoryAPI } from '@/services/api/category';
-// import { useQueryClient } from '@tanstack/react-query';
-// import { QUERY_KEY } from '@/config/key'
 
-export function CreateOrUpdateCategoryForm({ open, onClose, initialData }) {
+const initialFormData = {
+  name: '',
+  code: '',
+  parentCode: '',
+  imageUrl: ''
+}
+
+export function CreateOrUpdateCategoryForm({
+  open,
+  onClose,
+  initialData,
+  onSuccess
+}) {
   const isEditing = !!initialData
-  const [name, setName] = useState('')
-  const [errors, setErrors] = useState({ name: '' })
+  const [formData, setFormData] = useState(initialFormData)
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
-  // const queryClient = useQueryClient()
 
   useEffect(() => {
     if (initialData) {
-      setName(initialData.name)
+      setFormData({
+        name: initialData.name || '',
+        code: initialData.code || '',
+        parentCode: initialData.parentCode || '',
+        imageUrl: initialData.imageUrl || ''
+      })
     } else {
-      setName('')
+      setFormData(initialFormData)
     }
   }, [initialData])
 
   useEffect(() => {
-    setErrors({ name: '' })
+    setErrors({})
   }, [open])
 
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
   const handleSubmit = async () => {
-    if (!name.trim()) {
-      setErrors({ name: 'Tên không được bỏ trống' })
-      return
-    } else {
-      setErrors({ name: '' })
+    const newErrors = {}
+    if (!formData.name.trim()) {
+      newErrors.name = 'Tên không được bỏ trống'
     }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+    setErrors({})
+
     try {
       setLoading(true)
-      // if (isEditing && initialData) {
-      //   await updateCategoryAPI(initialData.id, { name: name.trim() })
-      //   toast.success('Cập nhật danh mục thành công')
-      // } else {
-      //   await createCategoryAPI({ name: name.trim() })
-      //   toast.success('Tạo danh mục mới thành công')
-      // }
-      // queryClient.invalidateQueries({ queryKey: QUERY_KEY.getAllCategories() })
-      onClose()
+      const payload = {
+        name: formData.name.trim(),
+        code: formData.code.trim() || null,
+        parentCode: formData.parentCode.trim() || null,
+        imageUrl: formData.imageUrl.trim() || null
+      }
+      if (isEditing && initialData) {
+        await updateCategoryAPI(initialData._id, payload)
+        toast.success('Cập nhật danh mục thành công')
+      } else {
+        await createCategoryAPI(payload)
+        toast.success('Tạo danh mục mới thành công')
+      }
+      onSuccess()
     } catch (err) {
-      toast.error('Có lỗi xảy ra: ' + err.message)
+      toast.error(
+        err?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.'
+      )
     } finally {
       setLoading(false)
-      setName('')
     }
   }
 
@@ -67,12 +95,39 @@ export function CreateOrUpdateCategoryForm({ open, onClose, initialData }) {
           </DialogTitle>
         </DialogHeader>
         <div className='space-y-4'>
+          <label className='text-sm font-medium'>Tên danh mục *</label>
           <Input
             placeholder='Tên danh mục'
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            name='name'
+            value={formData.name}
+            onChange={handleChange}
           />
-          <p className='text-red-500 text-xs'>{errors.name}</p>
+          {errors.name && <p className='text-red-500 text-xs'>{errors.name}</p>}
+
+          <label className='text-sm font-medium'>Mã danh mục</label>
+          <Input
+            placeholder='Mã danh mục (duy nhất)'
+            name='code'
+            value={formData.code}
+            onChange={handleChange}
+          />
+
+          <label className='text-sm font-medium'>Mã danh mục cha</label>
+          <Input
+            placeholder='Mã của danh mục cha (nếu có)'
+            name='parentCode'
+            value={formData.parentCode}
+            onChange={handleChange}
+          />
+
+          <label className='text-sm font-medium'>URL Hình ảnh</label>
+          <Input
+            placeholder='URL hình ảnh đại diện'
+            name='imageUrl'
+            value={formData.imageUrl}
+            onChange={handleChange}
+          />
+
           <div className='flex justify-end gap-2 pt-4'>
             <Button variant='outline' onClick={onClose}>
               Hủy

@@ -12,14 +12,15 @@ export const useAuthStore = create((set, get) => ({
   },
 
   signUp: async (username, email, password) => {
+    let res = null
     try {
       set({ loading: true })
       // gọi api
-      await authServices.signUp(username, email, password)
-      toast.success('Đăng kí thành công')
+      res = await authServices.signUp(username, email, password)
+      toast.success(res?.message || 'Đăng kí thành công')
     } catch (error) {
       console.log(error)
-      toast.error('Đăng kí không thành công')
+      toast.error('Email bị trùng hoặc mạng không hoạt động')
     } finally {
       set({ loading: false })
     }

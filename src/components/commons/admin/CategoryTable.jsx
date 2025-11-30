@@ -1,6 +1,5 @@
-import { Eye, Loader, Pencil, Trash } from 'lucide-react'
+import { Eye, Loader2, Pencil, Trash, FolderX } from 'lucide-react'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,34 +11,24 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-// import { QUERY_KEY } from '@/config/key'
-import { useDebounce } from '@/hooks/useDebounce'
-// import { useCategoryMutations, useGetCategories } from '@/services/query/category';
-// import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { GlobalPopup, useGlobalPopup } from '../popup'
 import React from 'react'
-import { categoriesMock } from '@/constant/constant'
 
-const ITEMS_PER_PAGE = 10
-
-export function CategoryTable({ onView, onEdit }) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [deletingCategoryId, setDeletingCategoryId] = useState()
-  // const { deleteCategory } = useCategoryMutations()
+export function CategoryTable({
+  categories,
+  isLoading,
+  pagination,
+  onView,
+  onEdit,
+  onDelete,
+  searchParams,
+  setSearchParams
+}) {
+  const [deletingCategoryId, setDeletingCategoryId] = useState(null)
   const { popupState, confirm, hidePopup } = useGlobalPopup()
 
-  // const queryClient = useQueryClient()
   const search = searchParams.get('search') || ''
-  const searchDebounced = useDebounce(search, 300)
-  const isFetching = false
-  const categories = categoriesMock
   const page = parseInt(searchParams.get('page') || '1', 10)
-  // const { data: categories, isFetching } = useGetCategories({
-  //   page,
-  //   limit: ITEMS_PER_PAGE,
-  //   search: searchDebounced
-  // })
 
   const setSearch = (value) => {
     setSearchParams(
@@ -61,30 +50,18 @@ export function CategoryTable({ onView, onEdit }) {
     })
   }
 
-  const handleDelete = (category) => {
+  const handleDelete = async (category) => {
     confirm(
       'Xóa danh mục',
       `Bạn chắc chắn muốn xóa "${category.name}"?`,
       async () => {
-        setDeletingCategoryId(category.id)
-        // deleteCategory.mutate(category.id, {
-        //   onSuccess: (res) => {
-        //     if (!categories?.success) return
-        //     if (!res.success) {
-        //       toast.error(res.message || 'Xóa danh mục thất bại')
-        //       return
-        //     }
-
-        //     toast.success('Xóa danh mục thành công')
-        //     // If this is the last item on the page (except page 1), go to previous page
-        //     if (categories.data.length === 1 && page > 1) {
-        //       goToPage(page - 1)
-        //     }
-        //     queryClient.invalidateQueries({
-        //       queryKey: QUERY_KEY.getAllCategories()
-        //     })
-        // }
-        // })
+        setDeletingCategoryId(category._id)
+        try {
+          await onDelete(category._id)
+        } finally {
+          setDeletingCategoryId(null)
+          hidePopup()
+        }
       }
     )
   }
@@ -109,6 +86,8 @@ export function CategoryTable({ onView, onEdit }) {
             <TableHeader>
               <TableRow>
                 <TableHead className='min-w-[200px]'>Tên danh mục</TableHead>
+                <TableHead className='min-w-[150px]'>Mã</TableHead>
+                <TableHead className='min-w-[150px]'>Danh mục cha</TableHead>
                 <TableHead className='min-w-[180px]'>Ngày tạo</TableHead>
                 <TableHead className='text-right w-[120px]'>
                   Hành động
@@ -116,68 +95,63 @@ export function CategoryTable({ onView, onEdit }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isFetching ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={3}>
+                  <TableCell colSpan={5}>
                     <div className='flex h-24 justify-center items-center'>
-                      <Loader className='animate-spin' />
+                      <Loader2 className='animate-spin' />
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : categories?.success ? (
-                categories.data.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3}>
-                      <div className='text-center h-24 flex items-center justify-center'>
-                        Không tìm thấy danh mục nào
-                      </div>
+              ) : categories.length > 0 ? (
+                categories.map((category) => (
+                  <TableRow key={category._id}>
+                    <TableCell className='font-medium'>
+                      {category.name}
+                    </TableCell>
+                    <TableCell>{category.code || '--'}</TableCell>
+                    <TableCell>{category.parentCode || '--'}</TableCell>
+                    <TableCell>
+                      {new Date(category.createdAt).toLocaleDateString('vi-VN')}
+                    </TableCell>
+                    <TableCell className='text-right space-x-1'>
+                      <Button
+                        disabled={deletingCategoryId === category._id}
+                        size='icon'
+                        variant='outline'
+                        onClick={() => onView(category)}
+                      >
+                        <Eye className='w-4 h-4' />
+                      </Button>
+                      <Button
+                        disabled={deletingCategoryId === category._id}
+                        size='icon'
+                        variant='outline'
+                        onClick={() => onEdit(category)}
+                      >
+                        <Pencil className='w-4 h-4' />
+                      </Button>
+                      <Button
+                        disabled={deletingCategoryId === category._id}
+                        size='icon'
+                        variant='destructive'
+                        onClick={() => handleDelete(category)}
+                      >
+                        {deletingCategoryId === category._id ? (
+                          <Loader2 className='animate-spin w-4 h-4' />
+                        ) : (
+                          <Trash className='w-4 h-4' />
+                        )}
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  categories.data.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell>{category.name}</TableCell>
-                      <TableCell>
-                        {new Date(category.createdAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className='text-right space-x-1'>
-                        <Button
-                          disabled={deleteCategory.isPending}
-                          size='icon'
-                          variant='outline'
-                          onClick={() => onView(category)}
-                        >
-                          <Eye className='w-4 h-4' />
-                        </Button>
-                        <Button
-                          disabled={deleteCategory.isPending}
-                          size='icon'
-                          variant='outline'
-                          onClick={() => onEdit(category)}
-                        >
-                          <Pencil className='w-4 h-4' />
-                        </Button>
-                        <Button
-                          disabled={deleteCategory.isPending}
-                          size='icon'
-                          variant='destructive'
-                          onClick={() => handleDelete(category)}
-                        >
-                          {deletingCategoryId === category.id ? (
-                            <Loader className='animate-spin w-4 h-4' />
-                          ) : (
-                            <Trash className='w-4 h-4' />
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )
+                ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3}>
-                    <div className='text-center h-24 flex items-center justify-center'>
-                      {categories?.message || 'Lỗi khi tải danh mục'}
+                  <TableCell colSpan={5}>
+                    <div className='text-center h-24 flex flex-col items-center justify-center'>
+                      <FolderX className='w-8 h-8 text-gray-400 mb-2' />
+                      <p className='text-gray-500'>Không tìm thấy danh mục.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -187,7 +161,7 @@ export function CategoryTable({ onView, onEdit }) {
         </div>
       </div>
 
-      {categories?.success && categories.pagination.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className='flex flex-col sm:flex-row justify-between items-center gap-4 pt-4'>
           <Button
             onClick={() => goToPage(page - 1)}
@@ -197,11 +171,11 @@ export function CategoryTable({ onView, onEdit }) {
             Trang trước
           </Button>
           <span className='text-sm text-gray-600'>
-            Trang {page} / {categories.pagination.totalPages}
+            Trang {page} / {pagination.totalPages}
           </span>
           <Button
             onClick={() => goToPage(page + 1)}
-            disabled={page === categories.pagination.totalPages}
+            disabled={page === pagination.totalPages}
             className='w-full sm:w-auto'
           >
             Trang sau

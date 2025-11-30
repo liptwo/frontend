@@ -22,12 +22,12 @@ export const postStatusToText = (status) => {
       return 'Chờ duyệt'
     case 'PUBLISHED':
       return 'Đang hiển thị'
-    case 'REJECT':
+    case 'REJECTED':
       return 'Bị từ chối'
     case 'EXPIRED':
       return 'Hết hạn'
-    case 'DRAFT':
-      return 'Tin nháp'
+    case 'DELETED':
+      return 'Đã xóa'
     default:
       return 'Tất cả'
   }

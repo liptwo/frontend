@@ -70,7 +70,7 @@ export default function PostNews() {
       try {
         setIsCategoriesLoading(true)
         const data = await getCategoriesAPI()
-        setCategories(data || [])
+        setCategories(data.data || [])
       } catch (error) {
         toast.error('Không thể tải danh mục.')
       } finally {

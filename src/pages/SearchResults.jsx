@@ -177,7 +177,7 @@ export default function SearchResults() {
       setCatLoading(true)
       try {
         const res = await getCategoriesAPI()
-        setCategories(res)
+        setCategories(res.data || [])
         setCatLoading(false)
       } catch (error) {
         console.error('Failed to fetch categories', error)

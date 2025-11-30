@@ -26,7 +26,8 @@ function DanhMuc({
       try {
         setLoading(true)
         const data = await getCategoriesAPI()
-        setCategories(data)
+        // API trả về { data: [], pagination: {} }, cần lấy mảng từ thuộc tính data
+        setCategories(data.data || [])
         setError(null)
       } catch (err) {
         setError('Không thể tải danh mục.')

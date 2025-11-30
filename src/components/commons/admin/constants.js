@@ -3,5 +3,6 @@ export const POST_STATUS_OPTIONS = [
   'PENDING',
   'PUBLISHED',
   'EXPIRED',
+  'REJECTED',
   'DELETED'
 ]

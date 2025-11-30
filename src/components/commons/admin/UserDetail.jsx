@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import React from 'react'
 
 // interface Props {
 // 	user: IUser | null;
@@ -25,8 +26,11 @@ export function UserDetail({ user, open, onClose }) {
         <div className='space-y-6'>
           <div className='flex justify-center'>
             <img
-              src={user.avatar}
-              alt={user.name}
+              src={
+                user.avatar ||
+                'https://i.pinimg.com/736x/7d/0c/6b/7d0c6bc79cfa39153751c56433141483.jpg'
+              }
+              alt={user.displayName}
               className='w-24 h-24 rounded-full object-cover'
             />
           </div>
@@ -34,7 +38,7 @@ export function UserDetail({ user, open, onClose }) {
           <div className='grid grid-cols-2 gap-4 text-sm'>
             <div>
               <div className='font-medium'>Tên</div>
-              <div>{user.name}</div>
+              <div>{user.displayName}</div>
             </div>
 
             <div>
@@ -45,11 +49,6 @@ export function UserDetail({ user, open, onClose }) {
             <div>
               <div className='font-medium'>Vai trò</div>
               <div className='capitalize'>{user.role}</div>
-            </div>
-
-            <div>
-              <div className='font-medium'>Số dư</div>
-              <div>{user.balance.toLocaleString()}₫</div>
             </div>
 
             <div>
@@ -66,12 +65,16 @@ export function UserDetail({ user, open, onClose }) {
 
             <div>
               <div className='font-medium'>Ngày sinh</div>
-              <div>{dayjs(user.dob)}</div>
+              <div>
+                {user.birthday
+                  ? dayjs(user.birthday).format('DD/MM/YYYY')
+                  : '--'}
+              </div>
             </div>
 
             <div>
               <div className='font-medium'>Ngày tạo</div>
-              <div>{dayjs(user.createdAt)}</div>
+              <div>{dayjs(user.createdAt).format('DD/MM/YYYY')}</div>
             </div>
 
             <div className='col-span-2'>

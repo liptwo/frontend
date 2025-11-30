@@ -37,72 +37,16 @@ import {
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
-// Mock data for charts - Replace with actual API data
-const userGrowthData = [
-  { month: 'T1', users: 120 },
-  { month: 'T2', users: 180 },
-  { month: 'T3', users: 240 },
-  { month: 'T4', users: 300 },
-  { month: 'T5', users: 380 },
-  { month: 'T6', users: 450 }
-]
-
-const listingActivityData = [
-  { day: 'T2', active: 65, inactive: 20 },
-  { day: 'T3', active: 75, inactive: 15 },
-  { day: 'T4', active: 85, inactive: 10 },
-  { day: 'T5', active: 95, inactive: 12 },
-  { day: 'T6', active: 110, inactive: 8 },
-  { day: 'T7', active: 125, inactive: 5 },
-  { day: 'CN', active: 100, inactive: 15 }
-]
-
-// Mock recent activities - Replace with actual API data
-const recentActivities = [
-  {
-    id: 1,
-    user: 'Nguyễn Văn A',
-    avatar: '/placeholder-user.jpg',
-    action: 'Đăng tin mới',
-    description: 'Cho thuê nhà trọ Q1',
-    time: '5 phút trước',
-    status: 'success'
-  },
-  {
-    id: 2,
-    user: 'Trần Thị B',
-    avatar: '/placeholder-user.jpg',
-    action: 'Đăng ký tài khoản',
-    description: 'Tài khoản mới',
-    time: '15 phút trước',
-    status: 'info'
-  },
-  {
-    id: 3,
-    user: 'Lê Văn C',
-    avatar: '/placeholder-user.jpg',
-    action: 'Cập nhật tin',
-    description: 'Nhà cho thuê Q7',
-    time: '30 phút trước',
-    status: 'warning'
-  },
-  {
-    id: 4,
-    user: 'Phạm Thị D',
-    avatar: '/placeholder-user.jpg',
-    action: 'Xóa tin',
-    description: 'Tin đã hết hạn',
-    time: '1 giờ trước',
-    status: 'danger'
-  }
-]
-
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeListings: 0,
     newUsersThisWeek: 0
   })
+  const [userGrowthData, setUserGrowthData] = useState([])
+  const [listingActivityData, setListingActivityData] = useState([])
+  const [recentUsers, setRecentUsers] = useState([])
+  const [recentListings, setRecentListings] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -110,7 +54,11 @@ export default function AdminDashboard() {
       try {
         setIsLoading(true)
         const data = await getDashboardStatsAPI()
-        setStats(data)
+        setStats(data.stats)
+        setUserGrowthData(data.userGrowthData)
+        setListingActivityData(data.listingActivityData)
+        setRecentUsers(data.recentUsers)
+        setRecentListings(data.recentListings)
       } catch (error) {
         toast.error('Không thể tải dữ liệu thống kê.')
         console.error(error)
@@ -121,15 +69,16 @@ export default function AdminDashboard() {
     fetchStats()
   }, [])
 
-  const getStatusBadge = (status) => {
-    const variants = {
-      success: 'default',
-      info: 'secondary',
-      warning: 'outline',
-      danger: 'destructive'
-    }
-    return variants[status] || 'default'
-  }
+  const recentActivities = [
+    ...recentUsers.map((user) => ({
+      type: 'user',
+      data: user
+    })),
+    ...recentListings.map((listing) => ({
+      type: 'listing',
+      data: listing
+    }))
+  ].sort((a, b) => new Date(b.data.createdAt) - new Date(a.data.createdAt))
 
   return (
     <div className='space-y-6'>
@@ -311,41 +260,61 @@ export default function AdminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentActivities.map((activity) => (
-                <TableRow key={activity.id}>
-                  <TableCell>
-                    <div className='flex items-center gap-3'>
-                      <Avatar className='h-8 w-8'>
-                        <AvatarImage
-                          src={activity.avatar || '/placeholder.svg'}
-                          alt={activity.user}
-                        />
-                        <AvatarFallback>
-                          {activity.user.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className='font-medium'>{activity.user}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className='font-medium'>
-                    {activity.action}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {activity.description}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {activity.time}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadge(activity.status)}>
-                      {activity.status === 'success' && 'Thành công'}
-                      {activity.status === 'info' && 'Thông tin'}
-                      {activity.status === 'warning' && 'Cảnh báo'}
-                      {activity.status === 'danger' && 'Lỗi'}
-                    </Badge>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className='text-center h-24'>
+                    Đang tải...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                recentActivities.slice(0, 5).map((activity) => (
+                  <TableRow key={activity.data._id}>
+                    <TableCell>
+                      <div className='flex items-center gap-3'>
+                        <Avatar className='h-8 w-8'>
+                          <AvatarImage
+                            src={
+                              (activity.type === 'user'
+                                ? activity.data.avatar
+                                : activity.data.seller?.avatar) ||
+                              '/placeholder.svg'
+                            }
+                            alt={
+                              activity.data.displayName ||
+                              activity.data.seller?.displayName
+                            }
+                          />
+                          <AvatarFallback>
+                            {(
+                              activity.data.displayName ||
+                              activity.data.seller?.displayName
+                            )?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className='font-medium'>
+                          {activity.data.displayName ||
+                            activity.data.seller?.displayName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className='font-medium'>
+                      {activity.type === 'user'
+                        ? 'Đăng ký mới'
+                        : 'Đăng tin mới'}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {activity.type === 'user'
+                        ? activity.data.email
+                        : activity.data.title}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {new Date(activity.data.createdAt).toLocaleString(
+                        'vi-VN'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

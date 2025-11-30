@@ -8,11 +8,16 @@ import {
   Loader2,
   Send,
   Image as ImageIcon,
+  MapPin,
   Search,
   MoreVertical,
-  ChevronLeft
+  ChevronLeft,
+  ExternalLink,
+  X
 } from 'lucide-react'
 import { uploadFileToCloudinary } from '@/services/api/cloudinary'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import LocationPickerModal from '@/components/chat/LocationPickerModal'
 
 const ChatPage = () => {
   const { user: currentUser } = useAuthStore()
@@ -27,6 +32,9 @@ const ChatPage = () => {
   const [previewUrl, setPreviewUrl] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [locationData, setLocationData] = useState(null)
+  const [mapModalLocation, setMapModalLocation] = useState(null)
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false)
   const messagesEndRef = useRef(null)
 
   // Derived selectedConversation from id (primitive) to avoid rerun effects
@@ -201,7 +209,7 @@ const ChatPage = () => {
     async (e) => {
       e?.preventDefault()
       if (
-        (!messageInput.trim() && !selectedImageFile) ||
+        (!messageInput.trim() && !selectedImageFile && !locationData) ||
         !selectedConversationId
       )
         return
@@ -219,6 +227,7 @@ const ChatPage = () => {
         createdAt: new Date().toISOString(),
         conversationId: selectedConversationId,
         imageUrl: previewUrl, // Use preview for optimistic UI
+        location: locationData,
         isTemp: true
       }
 
@@ -228,6 +237,7 @@ const ChatPage = () => {
       setSelectedImageFile(null)
       setPreviewUrl('')
       setIsUploadingImage(false)
+      setLocationData(null)
 
       try {
         let finalImageUrl = ''
@@ -243,11 +253,14 @@ const ChatPage = () => {
         }
 
         const payload = {
-          receiverId: otherUserId,
-          message: tempMessageText
+          receiverId: otherUserId
         }
+        if (tempMessageText) payload.message = tempMessageText
         if (finalImageUrl) {
           payload.imageUrl = finalImageUrl
+        }
+        if (locationData) {
+          payload.location = locationData
         }
 
         const realMessage = await sendMessageAPI(payload)
@@ -274,6 +287,7 @@ const ChatPage = () => {
       selectedConversation,
       selectedImageFile,
       previewUrl,
+      locationData,
       currentUser._id,
       updateConversationOnNewMessage
     ]
@@ -295,6 +309,53 @@ const ChatPage = () => {
 
   return (
     <div className='flex h-[90vh] bg-white'>
+      <LocationPickerModal
+        isOpen={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        onLocationSelect={(location) => setLocationData(location)}
+      />
+      {/* Map Modal */}
+      {mapModalLocation && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-in fade-in'
+          onClick={() => setMapModalLocation(null)}
+        >
+          <div
+            className='relative bg-white rounded-lg shadow-xl p-4 w-[90vw] max-w-4xl h-[85vh] flex flex-col gap-4'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className='text-xl font-semibold text-gray-800'>
+              Chi tiết vị trí
+            </h3>
+            <div className='flex-1 rounded-lg overflow-hidden'>
+              <MapContainer
+                center={[mapModalLocation.latitude, mapModalLocation.longitude]}
+                zoom={16}
+                scrollWheelZoom={true}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+                <Marker
+                  position={[
+                    mapModalLocation.latitude,
+                    mapModalLocation.longitude
+                  ]}
+                />
+              </MapContainer>
+            </div>
+            <div className='flex justify-end gap-3'>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${mapModalLocation.latitude},${mapModalLocation.longitude}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors'
+              >
+                <ExternalLink size={18} /> Mở bằng Google Maps
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar - Danh sách tin nhắn */}
       <div
         className={`${
@@ -345,7 +406,10 @@ const ChatPage = () => {
                 </h4>
                 <p className='text-xs text-gray-600 truncate'>
                   {conv.lastMessage?.senderId === currentUser._id && 'Bạn: '}
-                  {conv.lastMessage?.message || 'Bắt đầu cuộc trò chuyện'}
+                  {conv.lastMessage?.message ||
+                    (conv.lastMessage?.imageUrl && 'Đã gửi một ảnh') ||
+                    (conv.lastMessage?.location && 'Đã gửi vị trí') ||
+                    'Bắt đầu cuộc trò chuyện'}
                 </p>
               </div>
               <span className='text-xs text-gray-600 flex-shrink-0'>
@@ -423,13 +487,48 @@ const ChatPage = () => {
                             : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
                         }`}
                       >
-                        {msg.imageUrl && (
+                        {msg.location && msg.location.coordinates ? (
+                          <div
+                            className='block w-64 h-40 rounded-lg overflow-hidden cursor-pointer relative group'
+                            onClick={() =>
+                              setMapModalLocation({
+                                latitude: msg.location.coordinates[1],
+                                longitude: msg.location.coordinates[0]
+                              })
+                            }
+                          >
+                            <div className='pointer-events-none'>
+                              <MapContainer
+                                center={[
+                                  msg.location.coordinates[1],
+                                  msg.location.coordinates[0]
+                                ]}
+                                zoom={15}
+                                scrollWheelZoom={false}
+                                dragging={false}
+                                zoomControl={false}
+                                style={{ height: '100%', width: '100%' }}
+                              >
+                                <TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+                                <Marker
+                                  position={[
+                                    msg.location.coordinates[1],
+                                    msg.location.coordinates[0]
+                                  ]}
+                                />
+                              </MapContainer>
+                            </div>
+                            <div className='absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center text-white font-bold opacity-100 group-hover:opacity-70'>
+                              Xem bản đồ
+                            </div>
+                          </div>
+                        ) : msg.imageUrl ? (
                           <img
                             src={msg.imageUrl}
                             alt='Sent image'
                             className='rounded-lg mb-2 max-w-full h-auto'
                           />
-                        )}
+                        ) : null}
                         {msg.message && (
                           <p className='text-sm break-words'>{msg.message}</p>
                         )}
@@ -455,6 +554,21 @@ const ChatPage = () => {
 
             {/* Message Input Area */}
             <div className='px-4 md:px-5 py-4 border-t border-gray-200 bg-white'>
+              {/* Location Preview */}
+              {locationData && (
+                <div className='relative mb-3 p-2 border rounded-lg flex items-center gap-2'>
+                  <MapPin size={16} className='text-red-500' />
+                  <span className='text-sm text-gray-700'>
+                    Đã ghim một vị trí.
+                  </span>
+                  <button
+                    onClick={() => setLocationData(null)}
+                    className='absolute -top-2 -right-2 w-6 h-6 bg-gray-700 text-white rounded-full flex items-center justify-center hover:bg-gray-900 transition text-lg'
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
               {/* Image Preview */}
               {previewUrl && (
                 <div className='relative mb-3 w-20 h-20'>
@@ -467,7 +581,7 @@ const ChatPage = () => {
                     onClick={() => setPreviewUrl('')}
                     className='absolute -top-2 -right-2 w-6 h-6 bg-gray-700 text-white rounded-full flex items-center justify-center hover:bg-gray-900 transition text-lg'
                   >
-                    ×
+                    <X size={16} />
                   </button>
                 </div>
               )}
@@ -492,6 +606,15 @@ const ChatPage = () => {
                   />
                 </label>
 
+                {/* Location Button */}
+                <button
+                  type='button'
+                  onClick={() => setIsLocationPickerOpen(true)}
+                  className='cursor-pointer flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition text-red-500 flex-shrink-0 disabled:opacity-50'
+                >
+                  <MapPin size={20} />
+                </button>
+
                 {/* Text Input */}
                 <input
                   type='text'
@@ -511,7 +634,9 @@ const ChatPage = () => {
                   type='submit'
                   onClick={handleSendMessage}
                   className='flex items-center justify-center w-9 h-9 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition flex-shrink-0 disabled:bg-gray-300'
-                  disabled={!messageInput.trim()}
+                  disabled={
+                    !messageInput.trim() && !selectedImageFile && !locationData
+                  }
                 >
                   {isUploadingImage ? (
                     <Loader2 size={20} className='animate-spin' />

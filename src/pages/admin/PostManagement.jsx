@@ -1,5 +1,21 @@
 /* eslint-disable react-refresh/only-export-components */
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
+import {
+  getAdminListingsAPI,
+  getCategoriesAPI,
+  updateListingStatusAPI
+} from '@/apis'
 import { PostStatusTabs } from '@/components/commons/admin'
+import { PostDetailModal } from '@/components/commons/admin/PostDetailModal'
 import { PostCard } from '@/components/commons/admin/PostCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,15 +26,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-// import { QUERY_KEY } from '@/config/key'
+import { Textarea } from '@/components/ui/textarea'
 import { useDebounce } from '@/hooks/useDebounce'
-// import {
-//   usePostMutations,
-//   usePostQueryWithPagination
-// } from '@/services/query/post'
-// import { useGetAllCategories } from '@/services/query/category'
-// import { useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
   Search,
@@ -32,26 +42,13 @@ import provincesData from '@/json/provinces.json'
 import React from 'react'
 const ITEMS_PER_PAGE = 10
 
-// Filter options
-export const AGE_OPTIONS = [
-  { value: 'PUPPY', label: 'Chó con' },
-  { value: 'YOUNG_DOG', label: 'Chó nhỏ' },
-  { value: 'ADULT_DOG', label: 'Chó trưởng thành' },
-  { value: 'OTHER', label: 'Khác' }
-]
-
-export const SIZE_OPTIONS = [
-  { value: 'MINI', label: 'Mini' },
-  { value: 'SMALL', label: 'Nhỏ' },
-  { value: 'MEDIUM', label: 'Vừa' },
-  { value: 'LARGE', label: 'Lớn' }
-]
-
 export const SORT_OPTIONS = [
   { value: 'createdAt', label: 'Ngày tạo' },
   { value: 'price', label: 'Giá' },
   { value: 'title', label: 'Tiêu đề' }
 ]
+
+// TODO: API chưa hỗ trợ, thêm vào để UI không bị lỗi
 
 const PostCardSkeleton = () => (
   <div className='h-[300px] rounded-lg border bg-card text-card-foreground shadow-sm animate-pulse'>
@@ -66,56 +63,101 @@ const PostCardSkeleton = () => (
 
 export default function PostManagement() {
   const [page, setPage] = useState(1)
-  const [status, setStatus] = useState('PENDING')
   const [isAcceptingPostId, setIsAcceptingPostId] = useState()
+  const [rejectingPost, setRejectingPost] = useState(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [viewingPost, setViewingPost] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
 
   // Advanced filters
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [selectedAge, setSelectedAge] = useState('')
-  const [selectedSize, setSelectedSize] = useState('')
   const [selectedProvince, setSelectedProvince] = useState('')
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortOrder, setSortOrder] = useState('desc')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
+  // Default status is PENDING, can be changed by tabs
+  const [status, setStatus] = useState('PENDING')
+
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
-  const categoriesLoading = false
-  const categoriesResponse = {}
-  const loading = false
-  const postResponse = {}
-  // const queryClient = useQueryClient()
-  // const { data: postResponse, isFetching: loading } =
-  //   usePostQueryWithPagination({
-  //     page,
-  //     limit: ITEMS_PER_PAGE,
-  //     status: status === 'ALL' ? undefined : status,
-  //     search: debouncedSearchTerm || undefined,
-  //     categoryId: selectedCategory == 'all' ? undefined : selectedCategory,
-  //     minPrice: minPrice ? parseInt(minPrice) : undefined,
-  //     maxPrice: maxPrice ? parseInt(maxPrice) : undefined,
-  //     age: selectedAge === 'all' ? undefined : selectedAge,
-  //     size: selectedSize === 'all' ? undefined : selectedSize,
-  //     province: selectedProvince === 'all' ? undefined : selectedProvince,
-  //     sortBy: sortBy,
-  //     sortOrder
-  //   })
-  // const { data: categoriesResponse, isLoading: categoriesLoading } =
-  //   useGetAllCategories()
-  // const { acceptPost } = usePostMutations()
+
+  const [postResponse, setPostResponse] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [categoriesResponse, setCategoriesResponse] = useState([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [isApproving, setIsApproving] = useState(false)
+
+  const queryParams = useMemo(
+    () => ({
+      page,
+      limit: ITEMS_PER_PAGE,
+      status: status === 'ALL' ? undefined : status,
+      q: debouncedSearchTerm || undefined,
+      categoryId: selectedCategory === 'all' ? undefined : selectedCategory,
+      minPrice: minPrice ? parseInt(minPrice) : undefined,
+      maxPrice: maxPrice ? parseInt(maxPrice) : undefined,
+      location: selectedProvince === 'all' ? undefined : selectedProvince,
+      sortBy: sortBy,
+      sortOrder
+    }),
+    [
+      page,
+      status,
+      debouncedSearchTerm,
+      selectedCategory,
+      minPrice,
+      maxPrice,
+      selectedProvince,
+      sortBy,
+      sortOrder
+    ] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const fetchPosts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getAdminListingsAPI(queryParams)
+      setPostResponse(data)
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || 'Không thể tải danh sách bài đăng.'
+      )
+      setPostResponse(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [queryParams])
+
+  useEffect(() => {
+    fetchPosts()
+  }, [fetchPosts])
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setCategoriesLoading(true)
+      try {
+        const data = await getCategoriesAPI()
+        setCategoriesResponse(data.data || []) // Chỉ lấy mảng data từ response
+      } catch (error) {
+        toast.error('Không thể tải danh sách danh mục.')
+      } finally {
+        setCategoriesLoading(false)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   // Reset page when any filter changes
   useEffect(() => {
     setPage(1)
   }, [
+    status,
     debouncedSearchTerm,
     selectedCategory,
     minPrice,
     maxPrice,
-    selectedAge,
-    selectedSize,
     selectedProvince,
     sortBy,
     sortOrder
@@ -129,27 +171,69 @@ export default function PostManagement() {
 
   const handleApprove = async (postId) => {
     setIsAcceptingPostId(postId)
-    acceptPost.mutate(
-      { postId },
-      {
-        onSuccess: (res) => {
-          if (res.success) {
-            toast.success('Bài đăng đã được duyệt')
-            queryClient.invalidateQueries({ queryKey: QUERY_KEY.getAllPost() })
-          } else {
-            toast.error(res.message || 'Lỗi khi duyệt bài đăng')
-          }
-        },
-        onError: (error) => {
-          toast.error(
-            error?.response?.data?.message || 'Lỗi khi duyệt bài đăng'
-          )
-        },
-        onSettled: () => {
-          setIsAcceptingPostId(undefined)
-        }
-      }
-    )
+    setIsApproving(true)
+    try {
+      await updateListingStatusAPI(postId, { status: 'PUBLISHED' })
+      toast.success('Bài đăng đã được duyệt thành công.')
+      // Tải lại danh sách bài đăng sau khi duyệt
+      fetchPosts()
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.'
+      )
+    } finally {
+      setIsAcceptingPostId(undefined)
+      setIsApproving(false)
+    }
+  }
+
+  const handleOpenRejectDialog = (post) => {
+    setRejectingPost(post)
+    setRejectionReason('')
+  }
+
+  const handleReject = async () => {
+    if (!rejectingPost || !rejectionReason.trim()) {
+      toast.warning('Vui lòng nhập lý do từ chối.')
+      return
+    }
+
+    setIsAcceptingPostId(rejectingPost._id) // Dùng chung state loading
+    setIsApproving(true)
+    try {
+      await updateListingStatusAPI(rejectingPost._id, {
+        status: 'REJECTED',
+        rejectionReason: rejectionReason.trim()
+      })
+      toast.success('Bài đăng đã bị từ chối.')
+      fetchPosts() // Tải lại danh sách
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.'
+      )
+    } finally {
+      setRejectingPost(null)
+      setIsApproving(false)
+      setIsAcceptingPostId(undefined)
+    }
+  }
+
+  const handleHidePost = async (postId) => {
+    setIsAcceptingPostId(postId)
+    setIsApproving(true)
+    try {
+      await updateListingStatusAPI(postId, { status: 'EXPIRED' })
+      toast.success('Bài đăng đã được ẩn thành công.')
+      fetchPosts()
+      setViewingPost(null) // Close modal on success
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.'
+      )
+    } finally {
+      setIsAcceptingPostId(undefined)
+      setIsApproving(false)
+    }
   }
 
   const handleStatusChange = (newStatus) => {
@@ -159,11 +243,9 @@ export default function PostManagement() {
 
   const handleClearFilters = () => {
     setSearchTerm('')
-    setSelectedCategory('')
+    setSelectedCategory('all')
     setMinPrice('')
     setMaxPrice('')
-    setSelectedAge('')
-    setSelectedSize('')
     setSelectedProvince('')
     setSortBy('createdAt')
     setSortOrder('desc')
@@ -179,6 +261,10 @@ export default function PostManagement() {
   const handleCategoryChange = (value) => {
     setSelectedCategory(value)
     setPage(1)
+  }
+
+  const handleViewDetails = (post) => {
+    setViewingPost(post)
   }
 
   return (
@@ -221,9 +307,9 @@ export default function PostManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value='all'>Tất cả danh mục</SelectItem>
-                {categoriesResponse?.success &&
-                  categoriesResponse.data.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
+                {categoriesResponse &&
+                  categoriesResponse.map((category) => (
+                    <SelectItem key={category._id} value={category._id}>
                       {category.name}
                     </SelectItem>
                   ))}
@@ -233,11 +319,9 @@ export default function PostManagement() {
 
           {/* Clear Filters */}
           {(searchTerm ||
-            selectedCategory ||
+            selectedCategory !== 'all' ||
             minPrice ||
             maxPrice ||
-            selectedAge ||
-            selectedSize ||
             selectedProvince) && (
             <Button
               variant='outline'
@@ -289,42 +373,6 @@ export default function PostManagement() {
                   className='text-sm'
                 />
               </div>
-            </div>
-
-            {/* Age Filter */}
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Độ tuổi</label>
-              <Select value={selectedAge} onValueChange={setSelectedAge}>
-                <SelectTrigger className='text-sm'>
-                  <SelectValue placeholder='Chọn độ tuổi' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>Tất cả</SelectItem>
-                  {AGE_OPTIONS.map((age) => (
-                    <SelectItem key={age.value} value={age.value}>
-                      {age.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Size Filter */}
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Kích thước</label>
-              <Select value={selectedSize} onValueChange={setSelectedSize}>
-                <SelectTrigger className='text-sm'>
-                  <SelectValue placeholder='Chọn kích thước' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>Tất cả</SelectItem>
-                  {SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size.value} value={size.value}>
-                      {size.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Province Filter */}
@@ -383,11 +431,9 @@ export default function PostManagement() {
 
         {/* Active Filters Display */}
         {(searchTerm ||
-          selectedCategory ||
+          selectedCategory !== 'all' ||
           minPrice ||
           maxPrice ||
-          selectedAge ||
-          selectedSize ||
           selectedProvince) && (
           <div className='flex flex-wrap gap-2 text-sm text-gray-600'>
             <span>Bộ lọc đang áp dụng:</span>
@@ -396,13 +442,12 @@ export default function PostManagement() {
                 Tìm kiếm: "{searchTerm}"
               </span>
             )}
-            {selectedCategory && categoriesResponse?.success && (
+            {selectedCategory !== 'all' && categoriesResponse && (
               <span className='bg-green-100 text-green-800 px-2 py-1 rounded'>
                 Danh mục:{' '}
                 {
-                  categoriesResponse.data.find(
-                    (cat) => cat.id === selectedCategory
-                  )?.name
+                  categoriesResponse.find((cat) => cat._id === selectedCategory)
+                    ?.name
                 }
               </span>
             )}
@@ -410,21 +455,6 @@ export default function PostManagement() {
               <span className='bg-purple-100 text-purple-800 px-2 py-1 rounded'>
                 Giá: {formatPrice(minPrice) || '0'} -{' '}
                 {formatPrice(maxPrice) || '∞'} VNĐ
-              </span>
-            )}
-            {selectedAge && (
-              <span className='bg-orange-100 text-orange-800 px-2 py-1 rounded'>
-                Tuổi:{' '}
-                {AGE_OPTIONS.find((age) => age.value === selectedAge)?.label}
-              </span>
-            )}
-            {selectedSize && (
-              <span className='bg-yellow-100 text-yellow-800 px-2 py-1 rounded'>
-                Kích thước:{' '}
-                {
-                  SIZE_OPTIONS.find((size) => size.value === selectedSize)
-                    ?.label
-                }
               </span>
             )}
             {selectedProvince && (
@@ -452,18 +482,16 @@ export default function PostManagement() {
               <PostCardSkeleton key={index} />
             ))}
           </>
-        ) : !postResponse?.success ? (
+        ) : !postResponse?.data ? (
           <div className='col-span-3 text-center text-red-500'>
-            {postResponse?.message || 'Không có dữ liệu bài đăng'}
+            {postResponse?.message || 'Không thể tải dữ liệu bài đăng.'}
           </div>
         ) : postResponse.data.length === 0 ? (
           <div className='col-span-3 text-center text-gray-500'>
             {searchTerm ||
-            selectedCategory ||
+            selectedCategory !== 'all' ||
             minPrice ||
             maxPrice ||
-            selectedAge ||
-            selectedSize ||
             selectedProvince
               ? 'Không tìm thấy bài đăng nào phù hợp với bộ lọc'
               : 'Không có bài đăng nào'}
@@ -471,10 +499,12 @@ export default function PostManagement() {
         ) : (
           postResponse.data.map((post) => (
             <PostCard
-              key={post.id}
+              key={post._id}
               post={post}
               onApprove={handleApprove}
-              isApproving={acceptPost.isPending}
+              onViewDetails={handleViewDetails}
+              onReject={handleOpenRejectDialog}
+              isApproving={isApproving}
               isApprovingPostId={isAcceptingPostId}
             />
           ))
@@ -482,22 +512,20 @@ export default function PostManagement() {
       </div>
 
       {/* Results Summary */}
-      {!loading && postResponse?.success && postResponse.data.length > 0 && (
+      {!loading && postResponse?.data && postResponse.data.length > 0 && (
         <div className='text-sm text-gray-600 text-center'>
           Hiển thị {postResponse.data.length} trong tổng số{' '}
           {postResponse.pagination.totalItems} bài đăng
           {(searchTerm ||
-            selectedCategory ||
+            selectedCategory !== 'all' ||
             minPrice ||
             maxPrice ||
-            selectedAge ||
-            selectedSize ||
             selectedProvince) &&
             ' phù hợp với bộ lọc'}
         </div>
       )}
 
-      {!loading && postResponse?.success && postResponse.data.length > 0 && (
+      {!loading && postResponse?.data && postResponse.data.length > 0 && (
         <div className='flex items-center justify-center gap-2 pt-6'>
           <Button
             variant='outline'
@@ -522,6 +550,50 @@ export default function PostManagement() {
           </Button>
         </div>
       )}
+
+      {/* Reject Confirmation Dialog */}
+      <AlertDialog
+        open={!!rejectingPost}
+        onOpenChange={() => setRejectingPost(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Bạn có chắc muốn từ chối bài đăng này?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Bài đăng "{rejectingPost?.title}" sẽ bị từ chối và người đăng sẽ
+              nhận được thông báo. Vui lòng cung cấp lý do từ chối.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder='Nhập lý do từ chối (ví dụ: hình ảnh không phù hợp, thông tin sai sự thật...)'
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            className='min-h-[100px]'
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReject}
+              disabled={!rejectionReason.trim()}
+            >
+              Xác nhận từ chối
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Post Detail Modal */}
+      <PostDetailModal
+        open={!!viewingPost}
+        post={viewingPost}
+        onClose={() => setViewingPost(null)}
+        onApprove={handleApprove}
+        onReject={handleOpenRejectDialog}
+        onHide={handleHidePost}
+        isActionLoading={isApproving ? isAcceptingPostId : null}
+      />
     </div>
   )
 }

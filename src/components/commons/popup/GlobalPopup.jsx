@@ -7,6 +7,7 @@ import {
   XCircle
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import React from 'react'
 
 // export type PopupVariant =
 // 	| 'confirm'

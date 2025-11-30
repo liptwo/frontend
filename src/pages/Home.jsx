@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { categoriesMock } from '../constant/constant'
-import { getAllListingsSimpleAPI } from '@/apis'
+// import { categoriesMock } from '../constant/constant'
+import { getAllListingsSimpleAPI, getCategoriesAPI } from '@/apis'
 import ListSp from '../components/ListSp'
 import banner3 from '../assets/herobanner.png'
 import { HeroSearch } from '../components/HeroSearch'
@@ -15,17 +15,55 @@ import {
   Grid2x2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+const categoryVisuals = [
+  {
+    slug: 'do-dien-tu',
+    icon: Zap,
+    color: 'text-blue-500'
+  },
+  {
+    slug: 'xe-co',
+    icon: Bike,
+    color: 'text-green-500'
+  },
+  {
+    slug: 'noi-that-gia-dung',
+    icon: Sofa,
+    color: 'text-purple-500'
+  },
+  {
+    slug: 'thoi-trang',
+    icon: Shirt,
+    color: 'text-pink-500'
+  },
+  {
+    slug: 'me-va-be',
+    icon: Baby,
+    color: 'text-teal-500'
+  },
+  {
+    slug: 'do-van-phong',
+    icon: Hammer,
+    color: 'text-gray-500'
+  }
+]
+
 function Home() {
   const [isExpanded, setIsExpanded] = useState(false)
   const navigate = useNavigate()
   const handleClickDM = (id) => {
     const params = new URLSearchParams()
-    params.set('categoryId', id)
-    navigate(`/search?${params.toString()}`)
+    if (id) {
+      params.set('categoryId', id)
+      navigate(`/search?${params.toString()}`)
+    } else {
+      navigate('/search')
+    }
   }
   const [activeTab, setActiveTab] = useState('forYou')
   const [postList, setPostList] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [categories, setCategories] = useState([])
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -40,7 +78,26 @@ function Home() {
         setIsLoading(false)
       }
     }
+
+    const fetchCategories = async () => {
+      try {
+        const categoriesData = await getCategoriesAPI()
+        // API trả về { data: [], pagination: {} }, cần lấy mảng từ thuộc tính data
+        const categoriesWithVisuals = (categoriesData.data || []).map((cat) => {
+          const visual = categoryVisuals.find((v) => v.slug === cat.slug)
+          return {
+            ...cat,
+            icon: visual?.icon || Grid2x2, // Default icon
+            color: visual?.color || 'text-gray-500' // Default color
+          }
+        })
+        setCategories(categoriesWithVisuals)
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+      }
+    }
     fetchListings()
+    fetchCategories()
   }, [])
 
   return (
@@ -126,20 +183,20 @@ function Home() {
       <div className='container mx-auto px-10  mt-6'>
         <div className='bg-white pb-6 rounded-2xl shadow-sm '>
           <div className='flex justify-center gap-7 py-6 items-center flex-wrap'>
-            {categoriesMock.map((category) => {
+            {categories.map((category) => {
               const Icon = category.icon
               return (
                 category && (
                   <div
-                    key={category.id ?? category.slug}
+                    key={category._id ?? category.slug}
                     className='flex flex-col w-30 h-30 items-center p-2 hover:scale-105 transition duration-200 cursor-pointer rounded-2xl'
-                    onClick={() => handleClickDM(category?.id)}
+                    onClick={() => handleClickDM(category?._id)}
                   >
                     {/* <div className='w-30 h-30 mx-2  mb-1 flex flex-col items-center justify-center bg-gray-100 rounded-lg'> */}
                     <div
                       className={`${category.color}  flex flex-col items-center justify-centerp-3 rounded-lg  transition-colors relative`}
                     >
-                      <Icon className='w-20 h-20' />
+                      <img src={category.imageUrl} className='w-20 h-20' />
                       <span className='text-lg text-center text-gray-700 mt-2'>
                         {category.name}
                       </span>
@@ -153,7 +210,10 @@ function Home() {
 
             {/* Item: Tất cả danh mục */}
 
-            <div className='flex flex-col w-30 h-30 items-center p-2 hover:scale-105 transition duration-200 cursor-pointer rounded-2xl'>
+            <div
+              className='flex flex-col w-30 h-30 items-center p-2 hover:scale-105 transition duration-200 cursor-pointer rounded-2xl'
+              onClick={() => handleClickDM(null)}
+            >
               <div
                 className={`text-amber-400  flex flex-col items-center justify-centerp-3 rounded-lg  transition-colors relative`}
               >

@@ -105,51 +105,52 @@ export function UserTable({
                 </TableRow>
               ) : users.length > 0 ? (
                 users.map((user) => (
-                  <TableRow>
-                    <TableRow key={user._id}>
-                      <TableCell>
-                        <img
-                          src={user.avatar}
-                          alt={user.displayName}
-                          className='w-8 h-8 rounded-full object-cover'
-                        />
-                      </TableCell>
-                      <TableCell className='font-medium'>
-                        {user.displayName}
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell className='capitalize'>{user.role}</TableCell>
-                      <TableCell className='text-right space-x-1'>
-                        <Button
-                          disabled={deletingUserId === user._id}
-                          size='icon'
-                          variant='outline'
-                          onClick={() => onView(user)}
-                        >
-                          <Eye className='w-4 h-4' />
-                        </Button>
-                        <Button
-                          disabled={deletingUserId === user._id}
-                          size='icon'
-                          variant='outline'
-                          onClick={() => onEdit(user)}
-                        >
-                          <Pencil className='w-4 h-4' />
-                        </Button>
-                        <Button
-                          disabled={deletingUserId === user._id}
-                          size='icon'
-                          variant='destructive'
-                          onClick={() => handleDeleteUser(user)}
-                        >
-                          {deletingUserId === user._id ? (
-                            <Loader2 className='animate-spin w-4 h-4' />
-                          ) : (
-                            <Trash className='w-4 h-4' />
-                          )}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                  <TableRow key={user._id}>
+                    <TableCell>
+                      <img
+                        src={
+                          user.avatar ||
+                          'https://i.pinimg.com/736x/7d/0c/6b/7d0c6bc79cfa39153751c56433141483.jpg'
+                        }
+                        alt={user.displayName}
+                        className='w-8 h-8 rounded-full object-cover'
+                      />
+                    </TableCell>
+                    <TableCell className='font-medium'>
+                      {user.displayName}
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell className='capitalize'>{user.role}</TableCell>
+                    <TableCell className='text-right space-x-1'>
+                      <Button
+                        disabled={deletingUserId === user._id}
+                        size='icon'
+                        variant='outline'
+                        onClick={() => onView(user)}
+                      >
+                        <Eye className='w-4 h-4' />
+                      </Button>
+                      <Button
+                        disabled={deletingUserId === user._id}
+                        size='icon'
+                        variant='outline'
+                        onClick={() => onEdit(user)}
+                      >
+                        <Pencil className='w-4 h-4' />
+                      </Button>
+                      <Button
+                        disabled={deletingUserId === user._id}
+                        size='icon'
+                        variant='destructive'
+                        onClick={() => handleDeleteUser(user)}
+                      >
+                        {deletingUserId === user._id ? (
+                          <Loader2 className='animate-spin w-4 h-4' />
+                        ) : (
+                          <Trash className='w-4 h-4' />
+                        )}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
