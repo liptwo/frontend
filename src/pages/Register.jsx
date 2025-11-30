@@ -81,7 +81,7 @@ function Register() {
       picture: firebaseUser.photoURL
     }
 
-    dispatch(setUser(newUser))
+    // dispatch(setUser(newUser))
     // localStorage.setItem('user', JSON.stringify(newUser))
 
     // ✅ Điều hướng
@@ -188,14 +188,14 @@ function Register() {
         </form>
 
         {/* Divider */}
-        <div className='flex items-center my-6 text-gray-800 text-lg'>
+        {/* <div className='flex items-center my-6 text-gray-800 text-lg'>
           <hr className='flex-grow border-gray-400' />
           <span className='px-2'>Hoặc đăng nhập bằng</span>
           <hr className='flex-grow border-gray-400' />
-        </div>
+        </div> */}
 
         {/* Social Login */}
-        <div className='flex flex-row justify-between gap-3'>
+        {/* <div className='flex flex-row justify-between gap-3'>
           <div className='flex-1' style={{ transformOrigin: 'center' }}>
             <GoogleLogin
               text={'signin'}
@@ -211,14 +211,14 @@ function Register() {
           </div>
 
           {/* <div className='flex-1 flex justify-center'> */}
-          {/* <div className='w-full flex justify-center'></div> */}
-          {/* </div> */}
+        {/* <div className='w-full flex justify-center'></div> */}
+        {/* </div> */}
 
-          {/* <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition h-11'>
+        {/* <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition h-11'>
               <FaApple size={20} className='flex items-start' />
               <div className='flex-1 font-normal text-xl'>Apple</div>
-            </button> */}
-        </div>
+            </button> 
+        </div> */}
 
         {/* Đăng ký */}
         <p className='text-center text-md text-gray-900 mt-5'>

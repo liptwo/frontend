@@ -216,7 +216,7 @@ function Login() {
         </div>
 
         {/* Google Login */}
-        <div className='flex flex-row justify-between gap-3'>
+        {/* <div className='flex flex-row justify-between gap-3'>
           <div className='flex-1' style={{ transformOrigin: 'center' }}>
             <GoogleLogin
               text={'signin'}
@@ -230,7 +230,7 @@ function Login() {
               onError={() => console.error('Đăng nhập Google thất bại')}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Đăng ký */}
         <p className='text-center text-md text-gray-900 mt-5'>
