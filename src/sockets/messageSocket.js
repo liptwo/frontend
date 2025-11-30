@@ -24,7 +24,13 @@ export const initializeSocket = () => {
   }
 
   // URL của backend server, bạn có thể đưa vào file .env để dễ quản lý
-  const SOCKET_URL = 'http://localhost:8017'
+  // const SOCKET_URL = 'http://localhost:5000''
+  let SOCKET_URL = ''
+  if (import.meta.env.VITE_BUILD_MODE === 'development')
+    SOCKET_URL = SOCKET_URL = import.meta.env.VITE_WEBSITE_DOMAIN_DEVELOPMENT
+  else {
+    SOCKET_URL = SOCKET_URL = import.meta.env.VITE_WEBSITE_DOMAIN_PRODUCTION
+  }
 
   socket = io(SOCKET_URL, {
     // Server middleware đang mong đợi token trong `auth` payload
