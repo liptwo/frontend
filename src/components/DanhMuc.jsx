@@ -1,112 +1,77 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from 'react'
 import {
-    Laptop,
-    Shirt,
-    Armchair,
-    NotebookTabs,
-    BoomBox,
-    CarFront,
-    ArrowLeft,
-} from "lucide-react";
+  Laptop,
+  Shirt,
+  Armchair,
+  NotebookTabs,
+  BoomBox,
+  CarFront
+} from 'lucide-react'
+import { getCategoriesAPI } from '@/apis'
+import { useNavigate } from 'react-router-dom'
 
-function DanhMuc({ setSelectedData, setShowDanhMuc, hideTitle = false, itemClass = "" }) {
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [hoveredItem, setHoveredItem] = useState(null);
+function DanhMuc({
+  setSelectedData,
+  setShowDanhMuc,
+  hideTitle = false,
+  itemClass = ''
+}) {
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const navigate = useNavigate()
 
-
-    const danhMuc = [
-        {
-            icon: <Laptop />,
-            name: "Điện tử - Công nghệ",
-            children:
-                [
-                    "Điện thoại"
-                    ,
-                    "Laptop",
-                    "Máy tính bảng",
-                    "Phụ kiện"
-                ],
-        },
-        {
-            icon: <Shirt />,
-            name: "Thời trang",
-            children: ["Quần áo", "Giày dép", "Phụ kiện thời trang", "Túi xách"],
-        },
-        {
-            icon: <Armchair />,
-            name: "Đồ gia dụng",
-            children: ["Nồi cơm điện", "Máy hút bụi", "Bếp điện", "Máy giặt"],
-        },
-        {
-            icon: <NotebookTabs />,
-            name: "Sách & Văn phòng phẩm",
-            children: ["Sách học tập", "Sách kỹ năng", "Bút viết", "Tập vở"],
-        },
-        {
-            icon: <BoomBox />,
-            name: "Đồ chơi & Giải trí",
-            children: ["Đồ chơi trẻ em", "Boardgame", "Đồ chơi mô hình"],
-        },
-        {
-            icon: <CarFront />,
-            name: "Xe cộ",
-            children: ["Xe máy", "Ô tô", "Phụ tùng", "Đồ bảo hộ"],
-        },
-    ];
-    const handleSelectedData = (item) => {
-        setSelectedData(item);
-        console.log(item);
-        setShowDanhMuc(false);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        const data = await getCategoriesAPI()
+        setCategories(data)
+        setError(null)
+      } catch (err) {
+        setError('Không thể tải danh mục.')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
-    return (
-        <div>
-            {!hideTitle && (
-                <h1 className="text-lg font-semibold mb-2">Danh mục sản phẩm</h1>
-            )}
+    fetchCategories()
+  }, [])
 
-            {/* Nếu chưa chọn danh mục → hiển thị danh mục cha */}
-            {!selectedItem ? (
-                <ul className="text-gray-700 font-medium space-y-2">
-                    {danhMuc.map((item, index) => (
-                        <li
-                            key={index}
-                            onClick={() => setSelectedItem(item)}
-                            className={`hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-all p-2 rounded-md ${itemClass}`}
-                        >
-                            {item.icon}
-                            <span>{item.name}</span>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                /* Nếu đã chọn → hiển thị danh mục con */
-                <div>
-                    {/* Nút quay lại */}
-                    <button
-                        onClick={() => setSelectedItem(null)}
-                        className="flex items-center gap-2 text-blue-600 hover:underline mb-3"
-                    >
-                        <ArrowLeft size={18} />
-                        Quay lại danh mục
-                    </button>
+  const handleCategoryClick = (categoryId) => {
+    // Chuyển hướng đến trang tìm kiếm với categoryId đã chọn
+    navigate(`/search?categoryId=${categoryId}`)
+    // Nếu có hàm setShowDanhMuc, gọi nó để đóng dropdown
+    if (setShowDanhMuc) {
+      setShowDanhMuc(false)
+    }
+  }
 
-                    <h2 className="text-lg font-semibold mb-2">{selectedItem.name}</h2>
-                    <ul className="text-gray-700 font-medium space-y-2">
-                        {selectedItem.children.map((child, i) => (
-                            <li
-                                key={i}
-                                onClick={() => handleSelectedData(child)}
-                                className="hover:bg-gray-50 cursor-pointer p-2 border rounded-md"
-                            >
-                                {child}
-                            </li>
-                        ))}
-                    </ul>
+  return (
+    <div>
+      {!hideTitle && (
+        <h1 className='text-lg font-semibold mb-2'>Danh mục sản phẩm</h1>
+      )}
 
-                </div>
-            )}
-        </div>
-    );
+      {loading ? (
+        <div className='text-center p-4'>Đang tải...</div>
+      ) : error ? (
+        <div className='text-center p-4 text-red-500'>{error}</div>
+      ) : (
+        <ul className='text-gray-700 font-medium space-y-2'>
+          {categories.map((item) => (
+            <li
+              key={item.name}
+              onClick={() => handleCategoryClick(item._id)}
+              className={`hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-all p-2 rounded-md ${itemClass}`}
+            >
+              <span>{item.name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
-export default DanhMuc;
+export default DanhMuc

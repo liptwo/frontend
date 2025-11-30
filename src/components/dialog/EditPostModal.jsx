@@ -1,10 +1,31 @@
+'use client'
+
 import React, { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Camera, Info, X as CloseIcon } from 'lucide-react'
+import {
+  Camera,
+  Info,
+  CloverIcon as CloseIcon,
+  Upload,
+  ImageIcon
+} from 'lucide-react'
 import AddressDialog from './AddressDialog'
 import { uploadFileToCloudinary } from '@/services/api/cloudinary'
 import { updateListingAPI } from '@/apis'
 import { categoriesMock } from '@/constant/constant'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function EditPostModal({
   isOpen,
@@ -12,18 +33,17 @@ export default function EditPostModal({
   post,
   onPostUpdated
 }) {
-  if (!isOpen || !post) return null
-
   // Form states, initialized with post data
-  const [title, setTitle] = useState(post.title || '')
-  const [description, setDescription] = useState(post.description || '')
-  const [price, setPrice] = useState(post.price || '')
-  const [category, setCategory] = useState(post.categoryId || '')
-  const [address, setAddress] = useState(post.location || '')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [price, setPrice] = useState('')
+  const [category, setCategory] = useState('')
+  const [condition, setCondition] = useState('')
+  const [address, setAddress] = useState('')
 
   // Image states
   const [imageFiles, setImageFiles] = useState([]) // For new file uploads
-  const [imageUrls, setImageUrls] = useState(post.images || []) // For existing and new preview urls
+  const [imageUrls, setImageUrls] = useState([]) // For existing and new preview urls
   const fileInputRef = useRef(null)
 
   // Control states
@@ -31,11 +51,24 @@ export default function EditPostModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
 
+  useEffect(() => {
+    if (isOpen && post) {
+      setTitle(post.title || '')
+      setDescription(post.description || '')
+      setPrice(post.price || '')
+      setCategory(post.categoryId || '')
+      setCondition(post.condition || '')
+      setAddress(post.location || '')
+      setImageUrls(post.images || [])
+    }
+  }, [isOpen, post])
+
   const validateForm = () => {
     const newErrors = {}
     if (!title.trim()) newErrors.title = 'Vui lòng điền tiêu đề'
     if (!description.trim()) newErrors.description = 'Vui lòng nhập mô tả'
     if (!category) newErrors.category = 'Vui lòng chọn danh mục'
+    if (!condition) newErrors.condition = 'Vui lòng chọn tình trạng'
     if (!price.toString().trim() || isNaN(Number(price)))
       newErrors.price = 'Vui lòng nhập giá bán hợp lệ'
     if (!address) newErrors.address = 'Vui lòng chọn địa chỉ'
@@ -104,6 +137,7 @@ export default function EditPostModal({
         price: Number(price),
         location: address,
         categoryId: category,
+        condition: condition,
         images: finalImageUrls
       }
 
@@ -124,178 +158,262 @@ export default function EditPostModal({
     }
   }
 
-  return (
-    <div className='fixed inset-0 flex justify-center items-center bg-black/40 z-50 p-4'>
-      <div className='relative bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6'>
-        <h3 className='text-xl font-semibold text-gray-800 mb-6 text-center'>
-          Chỉnh sửa tin đăng
-        </h3>
-        <button
-          onClick={onClose}
-          className='absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl'
-        >
-          <CloseIcon size={24} />
-        </button>
+  if (!isOpen || !post) return null
 
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-          {/* Left Column: Images */}
-          <div className='space-y-3'>
-            <h4 className='font-medium'>Hình ảnh sản phẩm</h4>
-            <div className='flex flex-wrap gap-3'>
-              {imageUrls.map((url, idx) => (
-                <div
-                  key={idx}
-                  className='relative w-28 h-28 rounded-lg overflow-hidden border'
-                >
-                  <img
-                    src={url}
-                    alt={`preview-${idx}`}
-                    className='object-cover w-full h-full'
-                  />
-                  <button
-                    type='button'
-                    className='absolute top-1 right-1 bg-black bg-opacity-50 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600'
-                    onClick={() => handleRemoveImage(idx)}
-                  >
-                    ×
-                  </button>
+  return (
+    <div className='fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm z-50 p-4'>
+      <div className='relative bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col'>
+        {/* Header */}
+        <div className='bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 p-6 text-white relative'>
+          <div className='flex items-center gap-3'>
+            <div className='w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center'>
+              <ImageIcon className='w-6 h-6' />
+            </div>
+            <div>
+              <h3 className='text-2xl font-bold'>Chỉnh sửa tin đăng</h3>
+              <p className='text-sm text-white/90'>
+                Cập nhật thông tin sản phẩm của bạn
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={onClose}
+            variant='ghost'
+            size='icon'
+            className='absolute top-4 right-4 text-white hover:bg-white/20'
+          >
+            <CloseIcon className='w-5 h-5' />
+          </Button>
+        </div>
+
+        {/* Content */}
+        <div className='overflow-y-auto p-6 flex-1'>
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+            {/* Left Column: Images */}
+            <Card className='border-2'>
+              <CardHeader>
+                <CardTitle className='text-lg flex items-center gap-2'>
+                  <div className='w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center'>
+                    <Camera className='w-4 h-4 text-white' />
+                  </div>
+                  Hình ảnh sản phẩm
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-3'>
+                <div className='grid grid-cols-3 gap-3'>
+                  {imageUrls.map((url, idx) => (
+                    <div
+                      key={idx}
+                      className='relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 group'
+                    >
+                      <img
+                        src={url || '/placeholder.svg'}
+                        alt={`preview-${idx}`}
+                        className='object-cover w-full h-full group-hover:scale-110 transition-transform duration-300'
+                      />
+                      <div className='absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity' />
+                      <Button
+                        type='button'
+                        size='icon'
+                        variant='destructive'
+                        className='absolute top-2 right-2 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity'
+                        onClick={() => handleRemoveImage(idx)}
+                      >
+                        <CloseIcon className='w-4 h-4' />
+                      </Button>
+                    </div>
+                  ))}
+                  {imageUrls.length < 6 && (
+                    <button
+                      type='button'
+                      className='aspect-square border-2 border-dashed border-orange-300 rounded-xl flex flex-col items-center justify-center cursor-pointer bg-gradient-to-br from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 transition-all group'
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className='w-8 h-8 text-orange-400 mb-1 group-hover:scale-110 transition-transform' />
+                      <span className='text-xs text-gray-600 font-medium'>
+                        Thêm ảnh
+                      </span>
+                    </button>
+                  )}
                 </div>
-              ))}
-              {imageUrls.length < 6 && (
-                <div
-                  className='w-28 h-28 border-2 border-dashed border-orange-300 rounded-lg flex items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100'
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className='text-center'>
-                    <Camera className='w-8 h-8 text-orange-400 mx-auto' />
-                    <span className='text-xs text-gray-500 mt-1'>Thêm ảnh</span>
+                <input
+                  ref={fileInputRef}
+                  type='file'
+                  multiple
+                  accept='image/*'
+                  onChange={handleImageUpload}
+                  className='hidden'
+                />
+                {errors.images && (
+                  <Alert variant='destructive'>
+                    <AlertDescription>{errors.images}</AlertDescription>
+                  </Alert>
+                )}
+                <Alert>
+                  <Info className='w-4 h-4' />
+                  <AlertDescription className='text-xs'>
+                    Tối đa 6 ảnh. Ảnh đầu tiên sẽ là ảnh đại diện.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+
+            {/* Right Column: Info */}
+            <Card className='border-2'>
+              <CardHeader>
+                <CardTitle className='text-lg flex items-center gap-2'>
+                  <div className='w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 flex items-center justify-center'>
+                    <Info className='w-4 h-4 text-white' />
+                  </div>
+                  Thông tin sản phẩm
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='title' className='text-sm font-semibold'>
+                    Tiêu đề <span className='text-red-500'>*</span>
+                  </Label>
+                  <Input
+                    id='title'
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder='Nhập tiêu đề sản phẩm'
+                    className={errors.title ? 'border-red-500' : ''}
+                  />
+                  {errors.title && (
+                    <p className='text-xs text-red-500'>{errors.title}</p>
+                  )}
+                </div>
+
+                <div className='space-y-2'>
+                  <Label
+                    htmlFor='description'
+                    className='text-sm font-semibold'
+                  >
+                    Mô tả <span className='text-red-500'>*</span>
+                  </Label>
+                  <Textarea
+                    id='description'
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder='Mô tả chi tiết về sản phẩm'
+                    className={`h-24 resize-none ${
+                      errors.description ? 'border-red-500' : ''
+                    }`}
+                  />
+                  {errors.description && (
+                    <p className='text-xs text-red-500'>{errors.description}</p>
+                  )}
+                </div>
+
+                <div className='space-y-2'>
+                  <Label htmlFor='condition' className='text-sm font-semibold'>
+                    Tình trạng <span className='text-red-500'>*</span>
+                  </Label>
+                  <Select value={condition} onValueChange={setCondition}>
+                    <SelectTrigger
+                      className={errors.condition ? 'border-red-500' : ''}
+                    >
+                      <SelectValue placeholder='Chọn tình trạng' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='new'>Mới</SelectItem>
+                      <SelectItem value='like_new'>Như mới</SelectItem>
+                      <SelectItem value='used'>Đã qua sử dụng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.condition && (
+                    <p className='text-xs text-red-500'>{errors.condition}</p>
+                  )}
+                </div>
+                <div className='grid grid-cols-2 gap-4'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='price' className='text-sm font-semibold'>
+                      Giá (VNĐ) <span className='text-red-500'>*</span>
+                    </Label>
+                    <Input
+                      id='price'
+                      type='number'
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder='0'
+                      className={errors.price ? 'border-red-500' : ''}
+                    />
+                    {errors.price && (
+                      <p className='text-xs text-red-500'>{errors.price}</p>
+                    )}
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='category' className='text-sm font-semibold'>
+                      Danh mục <span className='text-red-500'>*</span>
+                    </Label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger
+                        className={errors.category ? 'border-red-500' : ''}
+                      >
+                        <SelectValue placeholder='Chọn danh mục' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoriesMock.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.category && (
+                      <p className='text-xs text-red-500'>{errors.category}</p>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type='file'
-              multiple
-              accept='image/*'
-              onChange={handleImageUpload}
-              className='hidden'
-            />
-            {errors.images && (
-              <p className='text-xs text-red-500'>{errors.images}</p>
-            )}
-          </div>
 
-          {/* Right Column: Info */}
-          <div className='space-y-4'>
-            <div>
-              <label className='label-text font-medium'>Tiêu đề *</label>
-              <input
-                type='text'
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className={`input input-bordered w-full mt-1 ${
-                  errors.title ? 'input-error' : ''
-                }`}
-              />
-              {errors.title && (
-                <p className='text-xs text-red-500 mt-1'>{errors.title}</p>
-              )}
-            </div>
-
-            <div>
-              <label className='label-text font-medium'>Mô tả *</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className={`textarea textarea-bordered w-full h-24 mt-1 ${
-                  errors.description ? 'textarea-error' : ''
-                }`}
-              />
-              {errors.description && (
-                <p className='text-xs text-red-500 mt-1'>
-                  {errors.description}
-                </p>
-              )}
-            </div>
-
-            <div className='grid grid-cols-2 gap-4'>
-              <div>
-                <label className='label-text font-medium'>Giá (VNĐ) *</label>
-                <input
-                  type='number'
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className={`input input-bordered w-full mt-1 ${
-                    errors.price ? 'input-error' : ''
-                  }`}
-                />
-                {errors.price && (
-                  <p className='text-xs text-red-500 mt-1'>{errors.price}</p>
-                )}
-              </div>
-              <div>
-                <label className='label-text font-medium'>Danh mục *</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={`select select-bordered w-full mt-1 ${
-                    errors.category ? 'select-error' : ''
-                  }`}
-                >
-                  <option value=''>Chọn danh mục</option>
-                  {categoriesMock.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && (
-                  <p className='text-xs text-red-500 mt-1'>{errors.category}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className='label-text font-medium'>Địa chỉ *</label>
-              <div
-                className={`input input-bordered flex items-center cursor-pointer mt-1 ${
-                  errors.address ? 'input-error' : ''
-                }`}
-                onClick={() => setShowAddressDialog(true)}
-              >
-                <p className='text-sm truncate'>{address || 'Chọn địa chỉ'}</p>
-              </div>
-              {errors.address && (
-                <p className='text-xs text-red-500 mt-1'>{errors.address}</p>
-              )}
-            </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='address' className='text-sm font-semibold'>
+                    Địa chỉ <span className='text-red-500'>*</span>
+                  </Label>
+                  <div
+                    className={`flex items-center h-10 px-3 py-2 text-sm border rounded-md cursor-pointer hover:bg-gray-50 transition-colors ${
+                      errors.address ? 'border-red-500' : 'border-input'
+                    }`}
+                    onClick={() => setShowAddressDialog(true)}
+                  >
+                    <p className='text-sm truncate flex-1'>
+                      {address || 'Nhấn để chọn địa chỉ'}
+                    </p>
+                  </div>
+                  {errors.address && (
+                    <p className='text-xs text-red-500'>{errors.address}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className='flex justify-end gap-3 pt-6 mt-6 border-t'>
-          <button
-            className='btn btn-outline'
+        {/* Footer */}
+        <div className='border-t bg-white p-4 flex justify-end gap-3'>
+          <Button
+            variant='outline'
             onClick={onClose}
             disabled={isSubmitting}
+            className='min-w-[100px]'
           >
             Hủy
-          </button>
-          <button
-            className='btn btn-warning'
+          </Button>
+          <Button
             onClick={handleSubmit}
             disabled={isSubmitting}
+            className='min-w-[120px] bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-white font-semibold'
           >
             {isSubmitting ? (
               <>
-                <span className='loading loading-spinner loading-sm'></span>
+                <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2' />
                 Đang lưu...
               </>
             ) : (
               'Lưu thay đổi'
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Address Dialog */}
@@ -308,11 +426,7 @@ export default function EditPostModal({
               setAddress(fullAddress)
               setShowAddressDialog(false)
             }}
-            initialAddress={
-              {
-                // Cần phân tách chuỗi địa chỉ ra các thành phần để truyền vào
-              }
-            }
+            initialAddress={{}}
           />
         )}
       </div>

@@ -1,16 +1,42 @@
+import React from 'react'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Info } from 'lucide-react'
-// import { uploadFileToCloudinary } from '@/services/api/cloudinary'
-// import { useCreatePost } from '@/services/query/post'
-// import { useGetCategories } from '@/services/query/category'
-// import { AddressDialog } from '@/components/dialog/AddressDialog'
+import {
+  Camera,
+  Info,
+  X,
+  Plus,
+  ImageIcon,
+  Package,
+  FileText,
+  MapPin,
+  ChevronRight,
+  Loader2
+} from 'lucide-react'
 import { toast } from 'sonner'
-import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import AddressDialog from '../components/dialog/AddressDialog'
 import { uploadFileToCloudinary } from '@/services/api/cloudinary'
-import { categoriesMock } from '@/constant/constant'
-import { createListingAPI } from '@/apis'
+import { createListingAPI, getCategoriesAPI } from '@/apis'
 
 export default function PostNews() {
   const navigate = useNavigate()
@@ -25,8 +51,10 @@ export default function PostNews() {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [age, setAge] = useState('')
+  const [condition, setCondition] = useState('')
   const [size, setSize] = useState('')
-  const [category, setCategory] = useState('')
+  // eslint-disable-next-line no-unused-vars
+  const [categoryId, setCategoryId] = useState('')
   const [address, setAddress] = useState(null)
   const [showAddressDialog, setShowAddressDialog] = useState(false)
 
@@ -34,25 +62,26 @@ export default function PostNews() {
   const [isUploading, setIsUploading] = useState(false)
   const [errors, setErrors] = useState({})
 
-  // API calls
-  // const { data: categoriesData, isLoading: isCategoriesLoading } =
-  //   useGetCategories({
-  //     page: 1,
-  //     limit: 100
-  //   })
-  const isCategoriesLoading = false
-  const categories = categoriesMock
-  const createPostMutation = { isPending: false, mutate: () => {} }
-  // const categories =
-  //   categoriesData && 'data' in categoriesData && categoriesData.success
-  //     ? categoriesData.data
-  //     : []
+  const [categories, setCategories] = useState([])
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true)
 
-  // const createPostMutation = useCreatePost()
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setIsCategoriesLoading(true)
+        const data = await getCategoriesAPI()
+        setCategories(data || [])
+      } catch (error) {
+        toast.error('Không thể tải danh mục.')
+      } finally {
+        setIsCategoriesLoading(false)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
-    console.log('console.log(previewUrls)', previewUrls)
     return () => {
       previewUrls.forEach((url) => URL.revokeObjectURL(url))
     }
@@ -127,8 +156,12 @@ export default function PostNews() {
       newErrors.description = 'Vui lòng nhập ít nhất 10 từ'
     }
 
-    if (!category) {
-      newErrors.category = 'Vui lòng chọn danh mục'
+    if (!categoryId) {
+      newErrors.categoryId = 'Vui lòng chọn danh mục'
+    }
+
+    if (!condition) {
+      newErrors.condition = 'Vui lòng chọn tình trạng sản phẩm'
     }
 
     if (!price.trim() || isNaN(Number(price))) {
@@ -149,21 +182,20 @@ export default function PostNews() {
 
   const handleSubmit = async () => {
     if (validateForm()) {
-      let uploadedImageUrls = []
+      setIsUploading(true)
+      const uploadedImageUrls = []
 
       if (selectedImages.length > 0) {
         setIsUploading(true)
         const uploadPromises = selectedImages.map((file) =>
           uploadFileToCloudinary(file, 'image')
         )
-
         try {
           const results = await Promise.all(uploadPromises)
           for (const res of results) {
             if (res.success && res.data && res.data.secure_url) {
               uploadedImageUrls.push(res.data.secure_url)
             } else {
-              setIsUploading(false)
               setErrors((prev) => ({
                 ...prev,
                 images: 'Có ảnh không upload được, hãy thử lại.'
@@ -173,7 +205,6 @@ export default function PostNews() {
           }
         } catch (error) {
           setIsUploading(false)
-          toast.error('Lỗi upload ảnh, vui lòng thử lại')
           return
         }
       }
@@ -185,8 +216,9 @@ export default function PostNews() {
         location: address
           ? `${address.specificAddress}, ${address.wardLabel}, ${address.provinceLabel}`
           : '',
-        categoryId: category,
-        images: uploadedImageUrls.map((url) => url)
+        condition: condition,
+        categoryId: categoryId,
+        images: uploadedImageUrls
       }
 
       await createListingAPI(payload)
@@ -198,7 +230,7 @@ export default function PostNews() {
             toast.error('Đăng tin thất bại')
           }
         })
-        .catch((err) => {
+        .catch(() => {
           toast.error('Đăng tin thất bại')
         })
         .finally(() => {
@@ -212,346 +244,454 @@ export default function PostNews() {
   }
 
   return (
-    <div className='min-h-screen bg-gray-100 py-6'>
-      <div className='container  mx-auto max-w-7xl px-4'>
-        <div className='bg-white p-4 rounded-lg shadow-sm'>
-          <div className='grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] px-5 gap-5'>
-            {/* Image Upload Section */}
-            <div className='space-y-3'>
-              <h3 className='text-lg font-semibold mb-10'>
-                Hình ảnh và Video sản phẩm
-              </h3>
-              <p className='text-sm text-gray-600'>
-                Xem thêm{' '}
-                <a href='#' className='text-blue-600 hover:underline'>
-                  Quy định đăng tin của SecondHandShop
-                </a>
-              </p>
+    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 py-8'>
+      <div className='container mx-auto max-w-7xl px-4'>
+        <div className='mb-8'>
+          <div className='flex items-center gap-2 text-sm text-muted-foreground mb-4'>
+            <span className='hover:text-primary cursor-pointer transition-colors'>
+              Trang chủ
+            </span>
+            <ChevronRight className='w-4 h-4' />
+            <span className='text-foreground font-medium'>Đăng tin mới</span>
+          </div>
+          <div className='space-y-2'>
+            <h1 className='text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'>
+              Đăng tin bán sản phẩm
+            </h1>
+            <p className='text-muted-foreground text-lg'>
+              Hoàn tất thông tin dưới đây để đăng tin của bạn
+            </p>
+          </div>
+        </div>
 
-              <div>
-                {previewUrls.length === 0 ? (
-                  <div
-                    className='relative border-2 border-dashed border-orange-300 rounded-lg p-4 bg-gray-50 w-[300px] cursor-pointer hover:bg-gray-100 transition'
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div
-                      className='absolute right-2 top-1 flex items-center gap-1 select-none'
-                      style={{ zIndex: 2 }}
-                    >
-                      <Info className='w-3 h-3 text-blue-500' />
-                      <span className='text-xs text-blue-500 font-normal leading-none'>
-                        Hình ảnh hợp lệ
-                      </span>
-                    </div>
-                    <div className='flex flex-col items-center space-y-3 justify-center h-full'>
-                      <div className='w-20 h-20 border-2 border-dashed border-orange-300 rounded-lg flex items-center justify-center'>
-                        <Camera className='w-8 h-8 text-orange-400' />
-                      </div>
-                      <p className='text-gray-600 text-sm text-center'>
-                        ĐĂNG TỪ 01 ĐẾN 06 HÌNH
-                      </p>
-                    </div>
+        <div className='grid grid-cols-1 lg:grid-cols-5 gap-6'>
+          <div className='lg:col-span-2'>
+            <Card className='shadow-lg border-2'>
+              <CardHeader>
+                <div className='flex items-center gap-3'>
+                  <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg'>
+                    <ImageIcon className='w-6 h-6 text-white' />
                   </div>
-                ) : (
                   <div>
-                    <div className='flex flex-wrap gap-3'>
-                      {previewUrls.map((url, idx) => (
-                        <div
-                          key={idx}
-                          className='relative w-32 h-24 rounded overflow-hidden border border-orange-300 bg-white flex items-center justify-center'
-                          draggable
-                          onDragStart={() => handleDragStart(idx)}
-                          onDragEnter={() => handleDragEnter(idx)}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={(e) => e.preventDefault()}
-                        >
-                          <img
-                            src={url}
-                            alt={`preview-${idx}`}
-                            className='object-cover w-full h-full'
-                          />
-                          <button
-                            type='button'
-                            className='absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition'
-                            onClick={() => handleRemoveImage(idx)}
-                            tabIndex={-1}
-                          >
-                            ×
-                          </button>
-                          {idx === 0 && (
-                            <span className='absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs text-center py-1'>
-                              Hình bìa
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {previewUrls.length < 6 && (
-                        <div
-                          className='w-32 h-24 border-2 border-dashed border-orange-300 rounded flex items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition'
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <span className='text-3xl text-orange-400 font-bold'>
-                            +
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <p className='text-xs text-gray-500 mt-2'>
-                      Nhấn và giữ để di chuyển hình ảnh
-                    </p>
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type='file'
-                  multiple
-                  accept='image/*'
-                  onChange={handleImageUpload}
-                  className='hidden'
-                  id='file-upload'
-                />
-              </div>
-            </div>
-
-            {/* Form Section */}
-            <div className='space-y-4 -ml-4'>
-              {errors.images && (
-                <div className='mb-2'>
-                  <div className='alert alert-error'>
-                    <svg
-                      className='stroke-current shrink-0 h-6 w-6'
-                      fill='none'
-                      viewBox='0 0 24 24'
-                    >
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth='2'
-                        d='M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2m8-2l2 2m0 0l2 2m-2-2l-2-2m2 2l2 2M9 19H5a2 2 0 01-2-2V7a2 2 0 012-2h4m0 0h8a2 2 0 012 2v10a2 2 0 01-2 2h-8m-4-2h.01M9 15h.01'
-                      />
-                    </svg>
-                    <span>{errors.images}</span>
+                    <CardTitle className='text-xl'>Hình ảnh sản phẩm</CardTitle>
+                    <CardDescription>
+                      Tối đa 6 ảnh (JPG, PNG hoặc GIF)
+                    </CardDescription>
                   </div>
                 </div>
-              )}
+              </CardHeader>
+              <CardContent className='space-y-4'>
+                {errors.images && (
+                  <Alert variant='destructive' className='border-2'>
+                    <X className='h-4 w-4' />
+                    <AlertDescription>{errors.images}</AlertDescription>
+                  </Alert>
+                )}
 
-              {/* Category */}
-              <div>
-                <label className='form-control w-full'>
-                  <div className='label'>
-                    <span className='label-text font-medium'>
-                      Danh Mục Tin Đăng *
-                    </span>
-                  </div>
-                  <select
-                    id='category'
-                    className={`select select-bordered w-full ${
-                      errors.category ? 'select-error' : ''
-                    }`}
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    disabled={isCategoriesLoading || !categories}
-                  >
-                    <option value=''>
-                      {isCategoriesLoading ? 'Đang tải...' : 'Chọn danh mục'}
-                    </option>
-                    {categories &&
-                      categories.length > 0 &&
-                      categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                  </select>
-                  {errors.category && (
-                    <div className='label'>
-                      <span className='label-text-alt text-error'>
-                        {errors.category}
-                      </span>
+                <div>
+                  {previewUrls.length === 0 ? (
+                    <div
+                      className='relative border-2 border-dashed border-primary/30 rounded-2xl p-10 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer hover:border-primary/50 hover:bg-primary/10 transition-all duration-300 group'
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Badge
+                        variant='secondary'
+                        className='absolute right-4 top-4 shadow-sm'
+                      >
+                        <Info className='w-3 h-3 mr-1' />
+                        Hình ảnh hợp lệ
+                      </Badge>
+                      <div className='flex flex-col items-center space-y-4 justify-center'>
+                        <div className='w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg'>
+                          <Camera className='w-12 h-12 text-primary' />
+                        </div>
+                        <div className='text-center space-y-2'>
+                          <p className='text-foreground font-semibold text-lg'>
+                            Tải ảnh lên
+                          </p>
+                          <p className='text-sm text-muted-foreground'>
+                            Kéo thả hoặc click để chọn ảnh
+                          </p>
+                          <p className='text-xs text-muted-foreground/70'>
+                            Tối đa 5MB mỗi ảnh
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className='space-y-4'>
+                      <div className='grid grid-cols-2 gap-3'>
+                        {previewUrls.map((url, idx) => (
+                          <div
+                            key={idx}
+                            className='relative aspect-square rounded-xl overflow-hidden border-2 border-border bg-muted hover:border-primary transition-all duration-200 cursor-move group shadow-md'
+                            draggable
+                            onDragStart={() => handleDragStart(idx)}
+                            onDragEnter={() => handleDragEnter(idx)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={(e) => e.preventDefault()}
+                          >
+                            <img
+                              src={url || '/placeholder.svg'}
+                              alt={`preview-${idx}`}
+                              className='object-cover w-full h-full group-hover:scale-110 transition-transform duration-300'
+                            />
+                            <Button
+                              type='button'
+                              size='icon'
+                              variant='destructive'
+                              className='absolute top-2 right-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8'
+                              onClick={() => handleRemoveImage(idx)}
+                              tabIndex={-1}
+                            >
+                              <X className='w-4 h-4' />
+                            </Button>
+                            {idx === 0 && (
+                              <Badge className='absolute bottom-2 left-2 bg-black/70 hover:bg-black/70'>
+                                Ảnh bìa
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                        {previewUrls.length < 6 && (
+                          <div
+                            className='aspect-square border-2 border-dashed border-muted-foreground/25 rounded-xl flex items-center justify-center cursor-pointer bg-muted/50 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 group'
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Plus className='w-10 h-10 text-muted-foreground group-hover:text-primary transition-colors' />
+                          </div>
+                        )}
+                      </div>
+                      <Alert>
+                        <Info className='h-4 w-4' />
+                        <AlertDescription className='text-xs'>
+                          Kéo và thả để sắp xếp lại thứ tự hình ảnh
+                        </AlertDescription>
+                      </Alert>
                     </div>
                   )}
-                </label>
-              </div>
+                  <input
+                    ref={fileInputRef}
+                    type='file'
+                    multiple
+                    accept='image/*'
+                    onChange={handleImageUpload}
+                    className='hidden'
+                    id='file-upload'
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* Detailed Info */}
-              <div>
-                <h3 className='text-lg font-semibold mb-4 mt-8'>
-                  Thông tin chi tiết
-                </h3>
-                <div className='space-y-3'>
-                  {/* Price */}
+          <div className='lg:col-span-3 space-y-6'>
+            {/* Category Card */}
+            <Card className='shadow-lg border-2'>
+              <CardHeader>
+                <div className='flex items-center gap-3'>
+                  <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg'>
+                    <Package className='w-6 h-6 text-white' />
+                  </div>
                   <div>
-                    <label className='form-control w-full'>
-                      <div className='label'>
-                        <span className='label-text text-sm'>Giá bán *</span>
-                      </div>
-                      <input
+                    <CardTitle className='text-xl'>Danh mục</CardTitle>
+                    <CardDescription>
+                      Chọn danh mục phù hợp với sản phẩm
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className='space-y-2'>
+                  <Label htmlFor='category' className='text-base'>
+                    Danh mục tin đăng{' '}
+                    <span className='text-destructive'>*</span>
+                  </Label>
+                  <Select
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                    disabled={isCategoriesLoading || !categories}
+                  >
+                    <SelectTrigger
+                      className={`h-12 ${
+                        errors.categoryId ? 'border-destructive' : ''
+                      }`}
+                    >
+                      <SelectValue
+                        placeholder={
+                          isCategoriesLoading ? 'Đang tải...' : 'Chọn danh mục'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories &&
+                        categories.map((cat) => (
+                          <SelectItem key={cat._id} value={cat._id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.categoryId && (
+                    <p className='text-sm text-destructive flex items-center gap-1'>
+                      <X className='w-3.5 h-3.5' />
+                      {errors.categoryId}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Product Details Card */}
+            <Card className='shadow-lg border-2'>
+              <CardHeader>
+                <div className='flex items-center gap-3'>
+                  <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg'>
+                    <FileText className='w-6 h-6 text-white' />
+                  </div>
+                  <div>
+                    <CardTitle className='text-xl'>
+                      Thông tin chi tiết
+                    </CardTitle>
+                    <CardDescription>
+                      Mô tả đầy đủ về sản phẩm của bạn
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className='space-y-6'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                  {/* Condition */}
+                  <div className='space-y-2'>
+                    <Label htmlFor='condition' className='text-base'>
+                      Tình trạng <span className='text-destructive'>*</span>
+                    </Label>
+                    <Select value={condition} onValueChange={setCondition}>
+                      <SelectTrigger
+                        className={`h-12 ${
+                          errors.condition ? 'border-destructive' : ''
+                        }`}
+                      >
+                        <SelectValue placeholder='Chọn tình trạng' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='new'>Mới</SelectItem>
+                        <SelectItem value='like_new'>Như mới</SelectItem>
+                        <SelectItem value='used'>Đã qua sử dụng</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.condition && (
+                      <p className='text-sm text-destructive flex items-center gap-1'>
+                        <X className='w-3.5 h-3.5' />
+                        {errors.condition}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Price */}
+                  <div className='space-y-2'>
+                    <Label htmlFor='price' className='text-base'>
+                      Giá bán <span className='text-destructive'>*</span>
+                    </Label>
+                    <div className='relative'>
+                      <Input
                         id='price'
                         type='number'
-                        placeholder='Nhập giá bán'
-                        className={`input input-bordered w-full ${
-                          errors.price ? 'input-error' : ''
+                        placeholder='0'
+                        className={`h-12 pr-12 ${
+                          errors.price ? 'border-destructive' : ''
                         }`}
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
                       />
-                      {errors.price && (
-                        <div className='label'>
-                          <span className='label-text-alt text-error'>
-                            {errors.price}
-                          </span>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Title & Description */}
-              <div>
-                <h3 className='text-lg font-semibold mb-4 mt-12'>
-                  Tiêu đề tin đăng và Mô tả chi tiết
-                </h3>
-                <div className='space-y-4'>
-                  <div>
-                    <label className='form-control w-full'>
-                      <div className='label'>
-                        <span className='label-text text-sm'>
-                          Tiêu đề tin đăng *
-                        </span>
-                        <span className='label-text-alt text-xs text-gray-500'>
-                          {title.length}/50 kí tự
-                        </span>
-                      </div>
-                      <input
-                        id='post-title'
-                        type='text'
-                        placeholder='Nhập tiêu đề...'
-                        className={`input input-bordered w-full ${
-                          errors.title ? 'input-error' : ''
-                        }`}
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        maxLength={50}
-                      />
-                      {errors.title && (
-                        <div className='label'>
-                          <span className='label-text-alt text-error'>
-                            {errors.title}
-                          </span>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className='form-control w-full'>
-                      <div className='label'>
-                        <span className='label-text text-sm'>
-                          Mô tả chi tiết *
-                        </span>
-                        <span className='label-text-alt text-xs text-gray-500'>
-                          {description.length}/1500 kí tự
-                        </span>
-                      </div>
-                      <textarea
-                        id='detailed-description'
-                        placeholder='Mô tả chi tiết về sản phẩm của bạn...'
-                        className={`textarea textarea-bordered w-full h-24 ${
-                          errors.description ? 'textarea-error' : ''
-                        }`}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        maxLength={1500}
-                      />
-                      {errors.description && (
-                        <div className='label'>
-                          <span className='label-text-alt text-error'>
-                            {errors.description}
-                          </span>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div>
-                <h3 className='text-lg font-semibold mb-4 pb-2 mt-12'>
-                  Thông tin người bán
-                </h3>
-                <div className='space-y-3'>
-                  <label className='form-control w-full'>
-                    <div className='label'>
-                      <span className='label-text text-sm'>Khu vực *</span>
+                      <span className='absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold'>
+                        đ
+                      </span>
                     </div>
-                    <div
-                      className={`input input-bordered flex items-center cursor-pointer ${
-                        errors.address ? 'input-error' : ''
-                      }`}
-                      onClick={() => setShowAddressDialog(true)}
-                    >
-                      {address ? (
-                        <p className='text-sm'>
+                    {errors.price && (
+                      <p className='text-sm text-destructive flex items-center gap-1'>
+                        <X className='w-3.5 h-3.5' />
+                        {errors.price}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className='space-y-2'>
+                  <Label htmlFor='title' className='text-base'>
+                    Tiêu đề tin đăng <span className='text-destructive'>*</span>
+                  </Label>
+                  <Input
+                    id='title'
+                    type='text'
+                    placeholder='VD: iPhone 13 Pro Max 256GB còn mới 99%'
+                    className={`h-12 ${
+                      errors.title ? 'border-destructive' : ''
+                    }`}
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={50}
+                  />
+                  <div className='flex justify-between items-center'>
+                    {errors.title ? (
+                      <p className='text-sm text-destructive flex items-center gap-1'>
+                        <X className='w-3.5 h-3.5' />
+                        {errors.title}
+                      </p>
+                    ) : (
+                      <span className='text-sm text-muted-foreground'>
+                        Tiêu đề hấp dẫn giúp bán nhanh hơn
+                      </span>
+                    )}
+                    <span className='text-xs text-muted-foreground'>
+                      {title.length}/50
+                    </span>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className='space-y-2'>
+                  <Label htmlFor='description' className='text-base'>
+                    Mô tả chi tiết <span className='text-destructive'>*</span>
+                  </Label>
+                  <Textarea
+                    id='description'
+                    placeholder='Mô tả chi tiết về sản phẩm: tình trạng, nguồn gốc, lý do bán...'
+                    className={`min-h-32 resize-none ${
+                      errors.description ? 'border-destructive' : ''
+                    }`}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={1500}
+                  />
+                  <div className='flex justify-between items-center'>
+                    {errors.description ? (
+                      <p className='text-sm text-destructive flex items-center gap-1'>
+                        <X className='w-3.5 h-3.5' />
+                        {errors.description}
+                      </p>
+                    ) : (
+                      <span className='text-sm text-muted-foreground'>
+                        Tối thiểu 10 từ
+                      </span>
+                    )}
+                    <span className='text-xs text-muted-foreground'>
+                      {description.length}/1500
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Location Card */}
+            <Card className='shadow-lg border-2'>
+              <CardHeader>
+                <div className='flex items-center gap-3'>
+                  <div className='w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg'>
+                    <MapPin className='w-6 h-6 text-white' />
+                  </div>
+                  <div>
+                    <CardTitle className='text-xl'>Địa chỉ</CardTitle>
+                    <CardDescription>Vị trí bán sản phẩm</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className='space-y-2'>
+                  <Label className='text-base'>
+                    Khu vực <span className='text-destructive'>*</span>
+                  </Label>
+                  <div
+                    className={`w-full px-4 py-3 bg-muted/50 border-2 ${
+                      errors.address ? 'border-destructive' : 'border-input'
+                    } rounded-xl cursor-pointer hover:bg-muted transition-all flex items-center justify-between group`}
+                    onClick={() => setShowAddressDialog(true)}
+                  >
+                    {address ? (
+                      <div className='flex-1'>
+                        <p className='text-foreground font-medium'>
                           {address.specificAddress}
                           {address.specificAddress ? ', ' : ''}
                           {address.wardLabel}
-                          {address.wardLabel ? ', ' : ''}
+                        </p>
+                        <p className='text-sm text-muted-foreground mt-0.5'>
                           {address.provinceLabel}
                         </p>
-                      ) : (
-                        <p className='text-gray-400 text-sm'>Chọn địa chỉ</p>
-                      )}
-                    </div>
-                    {errors.address && (
-                      <div className='label'>
-                        <span className='label-text-alt text-error'>
-                          {errors.address}
-                        </span>
                       </div>
+                    ) : (
+                      <span className='text-muted-foreground'>
+                        Chọn địa chỉ của bạn
+                      </span>
                     )}
-                  </label>
+                    <ChevronRight className='w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors' />
+                  </div>
+                  {errors.address && (
+                    <p className='text-sm text-destructive flex items-center gap-1'>
+                      <X className='w-3.5 h-3.5' />
+                      {errors.address}
+                    </p>
+                  )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-              {/* Action Buttons */}
-              <div className='flex justify-end gap-3 pt-4'>
-                <button className='btn btn-outline' onClick={handleCancel}>
-                  Hủy
-                </button>
-                <button
-                  className='btn btn-warning'
-                  onClick={handleSubmit}
-                  disabled={createPostMutation.isPending || isUploading}
+        <Card className='mt-6 shadow-lg border-2 sticky bottom-4 z-10 backdrop-blur-sm bg-background/95'>
+          <CardContent className='py-4'>
+            <div className='flex items-center justify-center gap-4'>
+              <div className='flex gap-3'>
+                <Button
+                  variant='outline'
+                  size='lg'
+                  onClick={handleCancel}
+                  disabled={isUploading}
+                  className='px-8 border-2 bg-transparent'
                 >
-                  {createPostMutation.isPending || isUploading ? (
+                  Hủy
+                </Button>
+                <Button
+                  size='lg'
+                  onClick={handleSubmit}
+                  disabled={isUploading}
+                  className='px-10 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg'
+                >
+                  {isUploading ? (
                     <>
-                      <span className='loading loading-spinner loading-sm'></span>
-                      Đang xử lý...
+                      <Loader2 className='w-5 h-5 animate-spin mr-2' />
+                      Đang đăng...
                     </>
                   ) : (
                     'Đăng tin'
                   )}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Address Dialog */}
-        {showAddressDialog && (
-          <AddressDialog
-            isOpen={showAddressDialog}
-            onClose={() => setShowAddressDialog(false)}
-            onSave={(value) => {
-              setAddress(value)
-              setShowAddressDialog(false)
-            }}
-            initialAddress={address || undefined}
-          />
-        )}
+        <Alert className='mt-6 border-2 border-blue-200 bg-blue-50/50'>
+          <Info className='h-5 w-5 text-blue-600' />
+          <AlertDescription className='text-blue-900'>
+            <p className='font-semibold mb-2'>Lưu ý khi đăng tin:</p>
+            <ul className='space-y-1 text-sm'>
+              <li>• Nội dung phải viết bằng tiếng Việt có dấu</li>
+              <li>• Tiêu đề tin không dài quá 100 kí tự</li>
+              <li>• Mô tả chi tiết không dài quá 3000 kí tự</li>
+              <li>• Tin đăng có hình ảnh rõ ràng sẽ được xem nhiều hơn</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
       </div>
+
+      <AddressDialog
+        isOpen={showAddressDialog}
+        onClose={() => setShowAddressDialog(false)}
+        onSave={(data) => {
+          setAddress(data)
+          setShowAddressDialog(false)
+        }}
+      />
     </div>
   )
 }

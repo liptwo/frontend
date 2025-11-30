@@ -3,12 +3,14 @@ import { Navigate, useLocation } from 'react-router-dom'
 import Login from './Login'
 import Register from './Register'
 import bgImage from '../assets/login_sale.jpg'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { useNavigate } from 'react-router-dom'
 
 const Auth = () => {
   const currentUser = useAuthStore((state) => state.user)
 
   const location = useLocation()
+  const navigate = useNavigate()
   const isLogin = location.pathname === '/login'
   if (currentUser) {
     return <Navigate to='/' replace={true} />
@@ -30,7 +32,13 @@ const Auth = () => {
           backgroundSize: '100% 100%'
         }}
       /> */}
-
+      <div
+        className='absolute top-0 left-0 m-10 p-2 flex text-nowrap cursor-pointer text-white rounded-xl bg-black/40'
+        onClick={() => navigate('/')}
+      >
+        {' '}
+        Quay lại trang chủ{' '}
+      </div>
       {isLogin ? <Login /> : <Register />}
     </section>
   )

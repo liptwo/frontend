@@ -2,8 +2,9 @@ import React from 'react'
 import { ChevronDown } from 'lucide-react'
 import { getAuth, signOut } from 'firebase/auth'
 import { app } from '../../firebaseConfig'
-import { useAuthStore } from '../../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 export default function UserMenu() {
   const { user, signOut } = useAuthStore()
@@ -47,25 +48,41 @@ export default function UserMenu() {
     <div className='flex items-center gap-2 ml-3'>
       {user ? (
         <>
+          {' '}
+          {user?.role === 'admin' && (
+            <button
+              className='hidden md:inline-flex btn btn-lg text-sm rounded-full bg-white text-black mx-1'
+              onClick={() => navigate('/admin/dashboard')}
+            >
+              Admin
+            </button>
+          )}
           <button
             className='hidden md:inline-flex btn btn-lg text-sm rounded-full bg-white text-black mx-1'
-            onClick={() => navigate('/ManagePost')}
+            onClick={() => {
+              if (user) {
+                navigate('/ManagePost')
+              } else {
+                toast.info('Bạn cần đăng nhập để thực hiện hành động này')
+              }
+            }}
           >
             Quản lý tin
           </button>
           <button
             className='btn btn-lg border-0 rounded-full text-sm bg-black text-white mx-1 px-3 sm:px-4'
             onClick={() => {
-              if (!user) {
-                alert('Vui lòng đăng nhập để tiếp tục')
+              if (user) {
+                navigate('/PostNews')
+              } else {
                 navigate('/login')
-              } else navigate('/PostNews')
+                toast.info('Vui lòng đăng nhập để tiếp tục')
+              }
             }}
           >
             <span className='hidden sm:inline'>Đăng tin</span>
             <span className='sm:hidden'>Đăng</span>
           </button>
-
           <div className='dropdown dropdown-end'>
             <div
               tabIndex={0}
@@ -117,7 +134,14 @@ export default function UserMenu() {
           </button>
           <button
             className='btn hidden md:inline border-0 btn-lg rounded-full text-sm bg-black text-white mx-1 px-3 sm:px-4'
-            onClick={() => navigate('/PostNews')}
+            onClick={() => {
+              if (user) {
+                navigate('/PostNews')
+              } else {
+                navigate('/login')
+                toast.info('Vui lòng đăng nhập để tiếp tục')
+              }
+            }}
           >
             Đăng tin
           </button>

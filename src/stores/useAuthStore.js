@@ -78,7 +78,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.log(error)
       get().clearState()
-      toast.error('Lỗi khi đăng nhập')
+      // toast.error('Lỗi khi đăng nhập')
     } finally {
       set({ loading: false })
     }

@@ -1,6 +1,45 @@
 import authorizedAxiosInstance from '../utils/authorizeAxios'
 import { API_ROOT } from '../utils/constants'
-import axios from 'axios'
+
+// =================================== Auth API ===================================
+
+export const loginAPI = async (data) => {
+  const res = await authorizedAxiosInstance.post(
+    `${API_ROOT}/users/login`,
+    data
+  )
+  return res.data
+}
+
+export const registerAPI = async (data) => {
+  const res = await authorizedAxiosInstance.post(
+    `${API_ROOT}/users/register`,
+    data
+  )
+  return res.data
+}
+
+export const logoutAPI = async () => {
+  const res = await authorizedAxiosInstance.delete(`${API_ROOT}/users/logout`)
+  return res.data
+}
+
+export const verifyAccountAPI = async (data) => {
+  const res = await authorizedAxiosInstance.put(
+    `${API_ROOT}/users/verify`,
+    data
+  )
+  return res.data
+}
+
+export const refreshTokenAPI = async () => {
+  const res = await authorizedAxiosInstance.get(
+    `${API_ROOT}/users/refresh_token`
+  )
+  return res.data
+}
+
+// =================================== Categories API ===================================
 
 export const getCategoriesAPI = async () => {
   const res = await authorizedAxiosInstance.get(`${API_ROOT}/categories`)
@@ -25,27 +64,38 @@ export const updateCategoryAPI = async (id, data) => {
   return res.data
 }
 
+export const deleteCategoryAPI = async (id) => {
+  const res = await authorizedAxiosInstance.delete(
+    `${API_ROOT}/categories/${id}`
+  )
+  return res.data
+}
+
 // =================================== Listings API ===================================
 
 export const getListingsAPI = async (params) => {
   // Sử dụng axios thường vì đây là public API
-  const res = await axios.get(`${API_ROOT}/listings`, { params })
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings`, {
+    params
+  })
   return res.data
 }
 
 export const searchListingsAPI = async (params) => {
-  const res = await axios.get(`${API_ROOT}/listings/search`, { params })
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings`, {
+    params
+  })
   return res.data
 }
 
 export const getAllListingsSimpleAPI = async () => {
-  const res = await axios.get(`${API_ROOT}/listings/all`)
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings/all`)
   return res.data
 }
 
 export const getListingDetailsAPI = async (id) => {
   // Sử dụng axios thường vì đây là public API
-  const res = await axios.get(`${API_ROOT}/listings/${id}`)
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings/${id}`)
   return res.data
 }
 
@@ -71,11 +121,26 @@ export const getMyListing = async () => {
   const res = await authorizedAxiosInstance.get(`${API_ROOT}/listings/me`)
   return res.data
 }
+
+export const updateUserAPI = async (data) => {
+  const res = await authorizedAxiosInstance.put(
+    `${API_ROOT}/users/update`,
+    data,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }
+  )
+  return res.data
+}
 // =================================== Reviews API ===================================
 
 export const getReviewsByListingAPI = async (listingId) => {
   // Sử dụng axios thường vì đây là public API
-  const res = await axios.get(`${API_ROOT}/reviews/listing/${listingId}`)
+  const res = await authorizedAxiosInstance.get(
+    `${API_ROOT}/reviews/listing/${listingId}`
+  )
   return res.data
 }
 
@@ -148,18 +213,33 @@ export const removeFavoriteAPI = async (listingId) => {
   return res.data
 }
 
-export const deleteCategoryAPI = async (id) => {
-  const res = await authorizedAxiosInstance.delete(
-    `${API_ROOT}/categories/${id}`
-  )
+// =================================== Users API (Admin) ===================================
+
+export const getAllUsersAPI = async (params) => {
+  // Sử dụng authorizedAxiosInstance vì đây là API cần quyền admin
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/users/all`, {
+    params
+  })
   return res.data
 }
 
-// =================================== Users API (Admin) ===================================
+export const getUserDetailsAPI = async (id) => {
+  const res = await authorizedAxiosInstance.get(`${API_ROOT}/users/${id}`)
+  return res.data
+}
 
-export const getAllUsersAPI = async () => {
-  // Sử dụng authorizedAxiosInstance vì đây là API cần quyền admin
-  const res = await authorizedAxiosInstance.get(`${API_ROOT}/users/all`)
+export const createUserAPI = async (data) => {
+  const res = await authorizedAxiosInstance.post(`${API_ROOT}/users`, data)
+  return res.data
+}
+
+export const updateUserByAdminAPI = async (id, data) => {
+  const res = await authorizedAxiosInstance.put(`${API_ROOT}/users/${id}`, data)
+  return res.data
+}
+
+export const deleteUserAPI = async (id) => {
+  const res = await authorizedAxiosInstance.delete(`${API_ROOT}/users/${id}`)
   return res.data
 }
 

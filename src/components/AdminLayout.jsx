@@ -3,8 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { Sidebar } from '@/components/commons/admin'
 import { Button } from '@/components/ui/button'
-import { useAuthStore } from '../stores/useAuthStore'
-
+import { useAuthStore } from '@/stores/useAuthStore'
 export default function AdminLayout() {
   const { user, loading } = useAuthStore()
 
@@ -25,7 +24,7 @@ export default function AdminLayout() {
     )
   }
 
-  if (user && user?.role !== 'admin') {
+  if (!user && user?.role !== 'admin' && !loading) {
     console.log(user?.role)
     return <Navigate to='/' />
   }

@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { Home, List, LogOut, Newspaper, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: Home },
@@ -11,9 +12,16 @@ const links = [
 ]
 
 export function Sidebar() {
+  const navigate = useNavigate()
   return (
     <aside className='w-64 h-full border-r bg-app-primary p-4 flex flex-col justify-between'>
       <div>
+        <div
+          className='cursor-pointer p-2 text-white flex justify-center mb-3 items-center rounded-xl bg-gray-500'
+          onClick={() => navigate('/')}
+        >
+          Trở về trang chủ
+        </div>
         <h2 className='text-xl font-bold mb-6 text-center'>Admin Panel</h2>
         <nav className='space-y-2'>
           {links.map(({ to, label, icon: Icon }) => (

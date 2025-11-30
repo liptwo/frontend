@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import Navbar from './Navbar/Navbar'
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useLocation } from 'react-router-dom'
 
 function Layout() {
@@ -26,9 +26,7 @@ function Layout() {
       </div>
     )
   }
-  if (!accessToken && user) {
-    return location.pathname != '/' && <Navigate to='/login' replace={true} />
-  }
+
   return (
     <div className='scroll-smooth '>
       <Navbar />

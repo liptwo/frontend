@@ -1,4 +1,4 @@
-import { Eye, Loader, Pencil, Trash } from 'lucide-react'
+import { Eye, Loader2, Pencil, Trash, UserX } from 'lucide-react'
 import React, { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -12,35 +12,24 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { useDebounce } from '@/hooks'
-// import { useUserMutations, useUserQueryWithPagination } from '@/services/query';
 import { toast } from 'sonner'
 import { GlobalPopup, useGlobalPopup } from '../popup'
 
-// type Props = {
-// 	onView: (user: IUser) => void;
-// 	onEdit: (user: IUser) => void;
-// };
-
-const ITEMS_PER_PAGE = 10
-
-export function UserTable({ onView, onEdit }) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [deletingUserId, setDeletingUserId] = useState()
-  // const { deleteUser } = useUserMutations()
+export function UserTable({
+  users,
+  isLoading,
+  pagination,
+  onView,
+  onEdit,
+  onDelete,
+  searchParams,
+  setSearchParams
+}) {
+  const [deletingUserId, setDeletingUserId] = useState(null)
 
   const search = searchParams.get('search') || ''
-  const searchDebounced = useDebounce(search, 300)
   const page = parseInt(searchParams.get('page') || '1', 10)
   const { popupState, confirm, hidePopup } = useGlobalPopup()
-
-  // const { data: users, isFetching } = useUserQueryWithPagination({
-  //   page,
-  //   limit: ITEMS_PER_PAGE,
-  //   search: searchDebounced
-  // })
-  const users = {}
-  const isFetching = false
 
   const setSearch = (value) => {
     setSearchParams((prev) => {
@@ -62,15 +51,17 @@ export function UserTable({ onView, onEdit }) {
   const handleDeleteUser = async (user) => {
     confirm(
       'Xóa người dùng',
-      `Bạn chắc chắn muốn xóa "${user.name}"?`,
+      `Bạn chắc chắn muốn xóa "${user.displayName}"?`,
       async () => {
-        setDeletingUserId(user.id)
-        // deleteUser.mutate(user.id, {
-        //   onSuccess: () => {
-        //     toast.success('Xóa người dùng thành công')
-        //     setDeletingUserId(undefined)
-        //   }
-        // })
+        setDeletingUserId(user._id)
+        try {
+          await onDelete(user._id)
+        } catch (error) {
+          // Error toast is handled in the parent component
+        } finally {
+          setDeletingUserId(null)
+          hidePopup()
+        }
       }
     )
   }
@@ -83,7 +74,7 @@ export function UserTable({ onView, onEdit }) {
         onClose={hidePopup}
       />
       <Input
-        placeholder='Tìm kiếm tên, email hoặc số điện thoại...'
+        placeholder='Tìm kiếm theo tên, email, username...'
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className='mb-4'
@@ -95,50 +86,42 @@ export function UserTable({ onView, onEdit }) {
             <TableHeader>
               <TableRow>
                 <TableHead className='w-[50px]'>Avatar</TableHead>
-                <TableHead className='min-w-[120px]'>Tên</TableHead>
+                <TableHead className='min-w-[150px]'>Tên hiển thị</TableHead>
                 <TableHead className='min-w-[180px]'>Email</TableHead>
                 <TableHead className='min-w-[100px]'>Vai trò</TableHead>
-                <TableHead className='min-w-[100px]'>Số dư</TableHead>
-                <TableHead className='w-[120px] text-right'>
+                <TableHead className='w-[140px] text-right'>
                   Hành động
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isFetching ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={5}>
                     <div className='flex h-24 justify-center items-center'>
-                      <Loader className='animate-spin' />
+                      <Loader2 className='animate-spin' />
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : users?.success ? (
-                users.data.length === 0 ? (
+              ) : users.length > 0 ? (
+                users.map((user) => (
                   <TableRow>
-                    <TableCell colSpan={6}>
-                      <div className='text-center h-24 flex items-center justify-center'>
-                        Không tìm thấy người dùng
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  users.data.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user._id}>
                       <TableCell>
                         <img
                           src={user.avatar}
-                          alt='avatar'
+                          alt={user.displayName}
                           className='w-8 h-8 rounded-full object-cover'
                         />
                       </TableCell>
-                      <TableCell>{user.name}</TableCell>
+                      <TableCell className='font-medium'>
+                        {user.displayName}
+                      </TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell className='capitalize'>{user.role}</TableCell>
-                      <TableCell>{user.balance.toLocaleString()}₫</TableCell>
                       <TableCell className='text-right space-x-1'>
                         <Button
-                          disabled={deleteUser.isPending}
+                          disabled={deletingUserId === user._id}
                           size='icon'
                           variant='outline'
                           onClick={() => onView(user)}
@@ -146,7 +129,7 @@ export function UserTable({ onView, onEdit }) {
                           <Eye className='w-4 h-4' />
                         </Button>
                         <Button
-                          disabled={deleteUser.isPending}
+                          disabled={deletingUserId === user._id}
                           size='icon'
                           variant='outline'
                           onClick={() => onEdit(user)}
@@ -154,51 +137,54 @@ export function UserTable({ onView, onEdit }) {
                           <Pencil className='w-4 h-4' />
                         </Button>
                         <Button
-                          disabled={deleteUser.isPending}
+                          disabled={deletingUserId === user._id}
                           size='icon'
                           variant='destructive'
                           onClick={() => handleDeleteUser(user)}
                         >
-                          {deletingUserId === user.id ? (
-                            <Loader className='animate-spin' />
+                          {deletingUserId === user._id ? (
+                            <Loader2 className='animate-spin w-4 h-4' />
                           ) : (
                             <Trash className='w-4 h-4' />
                           )}
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                )
-              ) : (
-                <div>
-                  <TableRow>
-                    <TableCell colSpan={6} className='text-center'>
-                      {users?.message || 'Lỗi khi tải người dùng'}
-                    </TableCell>
                   </TableRow>
-                </div>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <div className='text-center h-24 flex flex-col items-center justify-center'>
+                      <UserX className='w-8 h-8 text-gray-400 mb-2' />
+                      <p className='text-gray-500'>
+                        Không tìm thấy người dùng.
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {users?.success && users.pagination.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 && (
         <div className='flex flex-col sm:flex-row justify-between items-center gap-4 pt-4'>
           <Button
             onClick={() => goToPage(page - 1)}
             disabled={page === 1}
-            className='w-full sm:w-auto'
+            variant='outline'
           >
             Trang trước
           </Button>
           <span className='text-sm text-gray-600'>
-            Trang {page} / {users.pagination.totalPages}
+            Trang {page} / {pagination.totalPages}
           </span>
           <Button
             onClick={() => goToPage(page + 1)}
-            disabled={page === users.pagination.totalPages}
-            className='w-full sm:w-auto'
+            disabled={page === pagination.totalPages}
+            variant='outline'
           >
             Trang sau
           </Button>

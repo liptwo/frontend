@@ -9,11 +9,13 @@ let socket = null
  */
 export const initializeSocket = () => {
   // Ngắt kết nối socket cũ nếu có để tránh tạo nhiều kết nối
+
   if (socket) {
     socket.disconnect()
   }
 
   const accessToken = useAuthStore.getState().accessToken
+  console.log('👉 AccessToken gửi lên socket:', accessToken)
 
   // Chỉ khởi tạo socket nếu người dùng đã đăng nhập (có accessToken)
   if (!accessToken) {
@@ -30,7 +32,7 @@ export const initializeSocket = () => {
       token: accessToken
     }
   })
-
+  console.log('socket đang nghe')
   socket.on('connect', () => {
     console.log('Socket connected successfully:', socket.id)
   })
@@ -38,6 +40,9 @@ export const initializeSocket = () => {
   socket.on('disconnect', () => {
     console.log('Socket disconnected.')
   })
+  socket.on('connect_error', (err) =>
+    console.log('❌ Socket connect_error:', err.message)
+  )
 }
 
 /**

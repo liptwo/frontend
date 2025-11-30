@@ -2,7 +2,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { interceptorLoadingElements } from './fomatters'
 // import { refreshTokenAPI } from '@/apis'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 /**
 * Thông thể import { store } from '~/redux/store' theo cách thông thường ở đây
@@ -71,7 +71,7 @@ authorizedAxiosInstance.interceptors.response.use(
     // Trường hợp 1: Nếu như nhận mã 401 từ BE, gọi action `signOut` từ store.
     if (error.response?.status === 401) {
       // Gọi action `signOut` từ store mà không cần dùng hook
-      useAuthStore.getState().signOut()
+      // useAuthStore.getState().signOut()
     }
     // trường hợp 2: Nếu như nhận 410 từ be, thì sẽ gọi api refresh token để làm mới access token
     // Đầu tiên lấy được các request api đang bị lỗi thông qua error.config
@@ -96,7 +96,7 @@ authorizedAxiosInstance.interceptors.response.use(
           })
           .catch((_error) => {
             // Nếu nhận bất kỳ lỗi nào từ api refresh token thì cứ logout luôn
-            useAuthStore.getState().signOut() // Thay thế logic Redux cũ
+            // useAuthStore.getState().signOut() // Thay thế logic Redux cũ
             return Promise.reject(_error)
           })
           .finally(() => {
@@ -125,14 +125,14 @@ authorizedAxiosInstance.interceptors.response.use(
     // console.log error ra sẽ thấy cấu trúc data dẫn tới message lỗi như dưới đây
 
     console.log(error)
-    let errorMessage = error.response?.data?.message
-      ? error.response?.data?.message
-      : error?.message
+    // let errorMessage = error.response?.data?.message
+    //   ? error.response?.data?.message
+    //   : error?.message
 
     // dùng toast để hiển thị  bất kể mọi mã lỗi lên màn hình -- ngoại trừ 410 Gone phục vụ việc fresh lại token
-    if (error.response?.status !== 410) {
-      toast.error(errorMessage, { position: 'bottom-left' })
-    }
+    // if (error.response?.status !== 410) {
+    //   toast.error(errorMessage, { position: 'bottom-left' })
+    // }
     return Promise.reject(error)
   }
 )

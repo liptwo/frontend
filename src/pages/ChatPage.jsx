@@ -1,37 +1,47 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getConversationsAPI, getMessagesAPI, sendMessageAPI } from '@/apis'
 import { getSocket, initializeSocket } from '@/sockets/messageSocket'
 import { toast } from 'sonner'
 import {
+  Loader2,
   Send,
   Image as ImageIcon,
   Search,
   MoreVertical,
   ChevronLeft
 } from 'lucide-react'
+import { uploadFileToCloudinary } from '@/services/api/cloudinary'
 
 const ChatPage = () => {
   const { user: currentUser } = useAuthStore()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
 
   const [conversations, setConversations] = useState([])
-  const [selectedConversation, setSelectedConversation] = useState(null)
+  const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [messages, setMessages] = useState([])
   const [messageInput, setMessageInput] = useState('')
-  const [selectedImage, setSelectedImage] = useState(null)
+  const [selectedImageFile, setSelectedImageFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const messagesEndRef = useRef(null)
 
-  // Sử dụng ref để lưu trữ giá trị state mới nhất cho listener của socket
-  const selectedConversationRef = useRef(selectedConversation)
-  useEffect(() => {
-    selectedConversationRef.current = selectedConversation
-  }, [selectedConversation])
+  // Derived selectedConversation from id (primitive) to avoid rerun effects
+  const selectedConversation = useMemo(
+    () => conversations.find((c) => c._id === selectedConversationId) || null,
+    [conversations, selectedConversationId]
+  )
 
-  // 0. Initialize socket connection
+  // Keep a ref of selectedConversationId for socket handlers (stable primitive)
+  const selectedConversationIdRef = useRef(selectedConversationId)
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversationId
+  }, [selectedConversationId])
+
+  // 0. Initialize socket connection once (you may choose to call this after login)
   useEffect(() => {
     initializeSocket()
 
@@ -41,6 +51,8 @@ const ChatPage = () => {
         socket.disconnect()
       }
     }
+    // intentionally run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 1. Fetch conversations on mount
@@ -48,38 +60,39 @@ const ChatPage = () => {
     const fetchConversations = async () => {
       try {
         const convs = await getConversationsAPI()
-        console.log(convs)
         setConversations(convs)
+
+        // If URL has user param and no selectedConversationId yet, auto-select
+        const otherUserIdFromUrl = searchParams.get('user')
+        if (otherUserIdFromUrl && convs.length > 0) {
+          const conv = convs.find(
+            (c) => c.otherParticipant._id === otherUserIdFromUrl
+          )
+          if (conv) setSelectedConversationId(conv._id)
+        }
       } catch (error) {
         toast.error('Lỗi khi tải danh sách cuộc trò chuyện.')
         console.error(error)
       }
     }
     fetchConversations()
-  }, [])
+  }, [searchParams])
 
-  // 2. Handle selecting a chat from URL or list
-  useEffect(() => {
-    const otherUserIdFromUrl = searchParams.get('user')
-    if (otherUserIdFromUrl && conversations.length > 0) {
-      const conv = conversations.find(
-        (c) => c.otherParticipant._id === otherUserIdFromUrl
-      )
-      if (conv) {
-        setSelectedConversation(conv)
-      }
-    }
-  }, [searchParams, conversations])
-
-  // 3. Fetch messages when a conversation is selected
+  // 2. Fetch messages when a conversation id is selected
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!selectedConversation) return
+      if (!selectedConversationId) {
+        setMessages([])
+        return
+      }
+
+      // need otherUserId to call your API
+      const otherUserId = selectedConversation?.otherParticipant?._id
+      if (!otherUserId) return
+
       setIsLoadingMessages(true)
       try {
-        const msgs = await getMessagesAPI(
-          selectedConversation.otherParticipant._id
-        )
+        const msgs = await getMessagesAPI(otherUserId)
         setMessages(msgs)
       } catch (error) {
         toast.error('Lỗi khi tải tin nhắn.')
@@ -88,43 +101,72 @@ const ChatPage = () => {
         setIsLoadingMessages(false)
       }
     }
-    fetchMessages()
-  }, [selectedConversation])
 
-  // 4. Setup Socket.IO listener
+    fetchMessages()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConversationId])
+
+  // Helper: minimal update of conversations (move updated conv to head)
+  const updateConversationOnNewMessage = useCallback(
+    (newMessage) => {
+      setConversations((prevConvs) => {
+        const idx = prevConvs.findIndex(
+          (c) => c._id === newMessage.conversationId
+        )
+
+        if (idx === -1) {
+          // Optionally, you can fetch conversation data from server; here we insert minimal object
+          const newConv = {
+            _id: newMessage.conversationId,
+            participants: [newMessage.senderId, newMessage.receiverId],
+            otherParticipant:
+              newMessage.senderId === currentUser._id
+                ? { _id: newMessage.receiverId }
+                : { _id: newMessage.senderId },
+            lastMessage: newMessage
+          }
+          return [newConv, ...prevConvs]
+        }
+
+        const updated = { ...prevConvs[idx], lastMessage: newMessage }
+
+        if (idx === 0) {
+          // minimal change: replace first item only
+          const copy = prevConvs.slice()
+          copy[0] = updated
+          return copy
+        }
+
+        return [
+          updated,
+          ...prevConvs.slice(0, idx),
+          ...prevConvs.slice(idx + 1)
+        ]
+      })
+    },
+    [currentUser._id]
+  )
+
+  // 3. Setup Socket.IO listener (append only, avoid duplicates)
   useEffect(() => {
     const socket = getSocket()
     if (!socket) return
 
     const handleNewMessage = (newMessage) => {
-      const currentSelectedConv = selectedConversationRef.current
-      // Cập nhật tin nhắn nếu nó thuộc về cuộc trò chuyện đang mở
-      if (
-        currentSelectedConv &&
-        newMessage.conversationId === currentSelectedConv._id
-      ) {
-        setMessages((prevMessages) => [...prevMessages, newMessage])
-      }
+      // Prevent duplicates
+      setMessages((prev) => {
+        if (!newMessage || !newMessage._id) return prev
+        if (prev.some((m) => m._id === newMessage._id)) return prev
 
-      // Cập nhật tin nhắn cuối cùng và đưa cuộc trò chuyện lên đầu danh sách
-      setConversations((prevConvs) => {
-        let conversationExists = false
-        const updatedConvs = prevConvs.map((conv) => {
-          if (conv._id === newMessage.conversationId) {
-            conversationExists = true
-            return { ...conv, lastMessage: newMessage }
-          }
-          return conv
-        })
-
-        // Nếu không tìm thấy cuộc trò chuyện (trường hợp tin nhắn đầu tiên), bạn có thể thêm logic để fetch lại danh sách hoặc thêm mới.
-        // Hiện tại, chỉ sắp xếp lại.
-        return updatedConvs.sort(
-          (a, b) =>
-            new Date(b.lastMessage?.createdAt || 0) -
-            new Date(a.lastMessage?.createdAt || 0)
-        )
+        // If this message belongs to currently opened conversation => append
+        if (selectedConversationIdRef.current === newMessage.conversationId) {
+          return [...prev, newMessage]
+        }
+        return prev
       })
+
+      // Update conversation list minimal
+      updateConversationOnNewMessage(newMessage)
     }
 
     socket.on('newMessage', handleNewMessage)
@@ -132,17 +174,16 @@ const ChatPage = () => {
     return () => {
       socket.off('newMessage', handleNewMessage)
     }
-  }, []) // Chạy một lần duy nhất khi component mount
+  }, [updateConversationOnNewMessage])
 
-  // 5. Auto-scroll to the latest message
+  // 4. Auto-scroll to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleSelectChat = useCallback(
     (conversation) => {
-      setSelectedConversation(conversation)
-      // Update URL without reloading page
+      setSelectedConversationId(conversation._id)
       navigate(`/messages?user=${conversation.otherParticipant._id}`, {
         replace: true
       })
@@ -151,37 +192,105 @@ const ChatPage = () => {
   )
 
   const handleBackToList = useCallback(() => {
-    setSelectedConversation(null)
+    setSelectedConversationId(null)
     navigate('/messages', { replace: true })
   }, [navigate])
 
+  // 5. Send message: optimistic UI (temp message) + replace on server response
   const handleSendMessage = useCallback(
     async (e) => {
-      // Ngăn form submit nếu dùng thẻ <form>
-      if (e) e.preventDefault()
+      e?.preventDefault()
+      if (
+        (!messageInput.trim() && !selectedImageFile) ||
+        !selectedConversationId
+      )
+        return
 
-      if (!messageInput.trim() || !selectedConversation) return
+      const otherUserId = selectedConversation?.otherParticipant?._id
+      if (!otherUserId) return
 
-      const payload = {
-        receiverId: selectedConversation.otherParticipant._id,
-        message: messageInput
+      const tempId = `temp-${Date.now()}`
+      const tempMessageText = messageInput
+      const tempMessage = {
+        _id: tempId,
+        senderId: currentUser._id,
+        receiverId: otherUserId,
+        message: tempMessageText,
+        createdAt: new Date().toISOString(),
+        conversationId: selectedConversationId,
+        imageUrl: previewUrl, // Use preview for optimistic UI
+        isTemp: true
       }
 
+      // append temp message immediately
+      setMessages((prev) => [...prev, tempMessage])
+      setMessageInput('')
+      setSelectedImageFile(null)
+      setPreviewUrl('')
+      setIsUploadingImage(false)
+
       try {
-        // Backend sẽ emit 'newMessage' qua socket, client không cần tự thêm tin nhắn
-        await sendMessageAPI(payload)
-        setMessageInput('')
+        let finalImageUrl = ''
+        if (selectedImageFile) {
+          setIsUploadingImage(true)
+          const res = await uploadFileToCloudinary(selectedImageFile, 'image')
+          if (res.success && res.data.secure_url) {
+            finalImageUrl = res.data.secure_url
+          } else {
+            throw new Error('Image upload failed')
+          }
+          setIsUploadingImage(false)
+        }
+
+        const payload = {
+          receiverId: otherUserId,
+          message: tempMessageText
+        }
+        if (finalImageUrl) {
+          payload.imageUrl = finalImageUrl
+        }
+
+        const realMessage = await sendMessageAPI(payload)
+        console.log('realMessage', realMessage)
+        // replace temp message with real message (or append if not found)
+        setMessages((prev) => {
+          if (prev.some((m) => m._id === realMessage._id)) return prev
+          return prev.map((m) => (m.isTemp ? realMessage : m))
+        })
+
+        // update conversation list
+        updateConversationOnNewMessage(realMessage)
       } catch (error) {
-        toast.error('Gửi tin nhắn thất bại.')
+        // on failure, remove temp or mark failed
+        setMessages((prev) => prev.filter((m) => m._id !== tempId))
+        setMessageInput(tempMessageText) // Restore text input
+        toast.error('Không gửi được tin nhắn.')
         console.error(error)
       }
     },
-    [messageInput, selectedConversation]
+    [
+      messageInput,
+      selectedConversationId,
+      selectedConversation,
+      selectedImageFile,
+      previewUrl,
+      currentUser._id,
+      updateConversationOnNewMessage
+    ]
   )
 
   // Placeholder for image upload logic
-  const handleImageSelect = (e) => {
-    toast.info('Chức năng gửi ảnh đang được phát triển.')
+  const handleImageSelect = (event) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        toast.error('Kích thước ảnh không được vượt quá 5MB.')
+        return
+      }
+      setSelectedImageFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+    }
   }
 
   return (
@@ -216,7 +325,7 @@ const ChatPage = () => {
             <div
               key={conv._id}
               className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition border-l-4 ${
-                selectedConversation?._id === conv._id
+                selectedConversationId === conv._id
                   ? 'bg-blue-50 border-l-blue-500'
                   : 'hover:bg-gray-100 border-l-transparent'
               }`}
@@ -299,20 +408,31 @@ const ChatPage = () => {
                   {messages.map((msg) => (
                     <div
                       key={msg._id}
-                      className={`flex ${
+                      className={`flex items-end gap-2 ${
                         msg.senderId === currentUser._id
                           ? 'justify-end'
                           : 'justify-start'
-                      }`}
+                      } animate-in fade-in slide-in-from-bottom-2 duration-300`}
                     >
                       <div
-                        className={`max-w-xs px-3 py-2 rounded-2xl ${
+                        className={`max-w-xs md:max-w-md px-4 py-2.5 rounded-2xl shadow-sm ${
                           msg.senderId === currentUser._id
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-200 text-black'
+                            ? msg.isTemp
+                              ? 'bg-blue-300 text-white rounded-br-sm opacity-70' // Kiểu dáng cho tin nhắn tạm
+                              : 'bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-br-sm'
+                            : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm'
                         }`}
                       >
-                        <p className='text-sm break-words'>{msg.message}</p>
+                        {msg.imageUrl && (
+                          <img
+                            src={msg.imageUrl}
+                            alt='Sent image'
+                            className='rounded-lg mb-2 max-w-full h-auto'
+                          />
+                        )}
+                        {msg.message && (
+                          <p className='text-sm break-words'>{msg.message}</p>
+                        )}
                         <span
                           className={`text-xs block mt-1 ${
                             msg.senderId === currentUser._id
@@ -336,16 +456,16 @@ const ChatPage = () => {
             {/* Message Input Area */}
             <div className='px-4 md:px-5 py-4 border-t border-gray-200 bg-white'>
               {/* Image Preview */}
-              {selectedImage && (
+              {previewUrl && (
                 <div className='relative mb-3 w-20 h-20'>
                   <img
-                    src={selectedImage}
+                    src={previewUrl}
                     alt='preview'
                     className='w-full h-full rounded-lg object-cover'
                   />
                   <button
-                    onClick={() => setSelectedImage(null)}
-                    className='absolute -top-2 -right-2 w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center hover:bg-gray-400 transition text-lg'
+                    onClick={() => setPreviewUrl('')}
+                    className='absolute -top-2 -right-2 w-6 h-6 bg-gray-700 text-white rounded-full flex items-center justify-center hover:bg-gray-900 transition text-lg'
                   >
                     ×
                   </button>
@@ -393,7 +513,11 @@ const ChatPage = () => {
                   className='flex items-center justify-center w-9 h-9 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition flex-shrink-0 disabled:bg-gray-300'
                   disabled={!messageInput.trim()}
                 >
-                  <Send size={20} />
+                  {isUploadingImage ? (
+                    <Loader2 size={20} className='animate-spin' />
+                  ) : (
+                    <Send size={20} />
+                  )}
                 </button>
               </form>
             </div>

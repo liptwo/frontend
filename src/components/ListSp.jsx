@@ -1,23 +1,61 @@
-import React from 'react'
+'use client'
 
-import dayjs from 'dayjs'
-import 'dayjs/locale/vi'
-// import 'moment/locale/vi' // not needed unless you use moment elsewhere
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, MapPin, MoreHorizontal } from 'lucide-react'
-// import { getRelativeTime } from '../helper'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { addFavoriteAPI, removeFavoriteAPI } from '@/apis'
-import relativeTime from 'dayjs/plugin/relativeTime'
-dayjs.extend(relativeTime)
-dayjs.locale('vi')
-function ListSp({ filteredProducts }) {
+import { PostCard } from './commons/PostCard'
+import { Loader2 } from 'lucide-react'
+
+// interface ListSpProps {
+//   filteredProducts: Array<{
+//     _id: string
+//     title: string
+//     price: number
+//     description?: string
+//     images?: string[]
+//     location?: string
+//     updatedAt: string
+//     seller?: {
+//       displayName?: string
+//     }
+//     views?: number
+//   }>
+//   isLoading?: boolean
+//   onLoadMore?: () => void
+//   hasMore?: boolean
+// }
+
+function ProductSkeleton() {
+  return (
+    <div className='bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse'>
+      <div className='aspect-square bg-gray-200' />
+      <div className='p-4 space-y-3'>
+        <div className='h-4 bg-gray-200 rounded w-3/4' />
+        <div className='h-6 bg-gray-200 rounded w-1/2' />
+        <div className='flex items-center gap-2'>
+          <div className='h-3 bg-gray-200 rounded w-16' />
+          <div className='h-3 bg-gray-200 rounded w-20' />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ListSp({
+  filteredProducts,
+  isLoading = false,
+  onLoadMore,
+  hasMore = false
+}) {
   const navigate = useNavigate()
   const { user: infoUs } = useAuthStore()
   const isAuthenticated = !!infoUs
 
   const [favorites, setFavorites] = React.useState(infoUs?.favorites || [])
+  const [favoriteLoading, setFavoriteLoading] = React.useState(null)
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
 
   React.useEffect(() => {
     if (infoUs?.favorites) {
@@ -25,165 +63,167 @@ function ListSp({ filteredProducts }) {
     }
   }, [infoUs])
 
-  if (!filteredProducts) {
-    return <p>Không có sản phẩm nào để hiển thị.</p>
-  }
   const saved = async (id) => {
+    if (favoriteLoading) return
+    setFavoriteLoading(id)
     try {
       await addFavoriteAPI(id)
       setFavorites((prev) => [...prev, id])
-      toast.success('Đã thêm vào danh sách yêu thích!')
+      toast.success('Đã thêm vào yêu thích!')
     } catch (error) {
       console.log(error)
       toast.error('Có lỗi xảy ra, vui lòng thử lại.')
+    } finally {
+      setFavoriteLoading(null)
     }
   }
 
   const remove = async (id) => {
+    if (favoriteLoading) return
+    setFavoriteLoading(id)
     try {
       await removeFavoriteAPI(id)
       setFavorites((prev) => prev.filter((favId) => favId !== id))
-      toast.success('Đã xóa khỏi danh sách yêu thích!')
+      toast.success('Đã xóa khỏi yêu thích!')
     } catch (error) {
       console.log(error)
       toast.error('Có lỗi xảy ra, vui lòng thử lại.')
+    } finally {
+      setFavoriteLoading(null)
     }
   }
 
-  return (
-    <>
-      <div className='grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5 md:gap-4'>
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
-            <div
-              key={product._id}
-              className='rounded-xl h-full bg-white p-2 flex flex-col shadow-sm w-full cursor-pointer'
-              onClick={() => navigate(`/product/${product._id}`)}
-            >
-              <div className='relative flex-col max-w-full flex items-center justify-center overflow-hidden rounded-xl group w-full'>
-                <div className='w-full aspect-w-4 flex items-center justify-center aspect-h-3 overflow-hidden rounded-md mb-3'>
-                  <img
-                    src={
-                      Array.isArray(product.images) && product.images.length > 0
-                        ? product.images[0]
-                        : '/placeholder.svg'
-                    }
-                    alt={product.title || 'Product image'}
-                    className='w-auto h-52 object-cover transition-transform duration-200 group-hover:scale-105 bg-center z-0'
-                  />
-                </div>
-                <button
-                  className={`btn btn-circle absolute top-2 right-2 h-8 w-8 rounded-xl border-0 z-0 ${
-                    favorites.includes(product._id)
-                      ? 'bg-red-500/70 hover:bg-red-600/70'
-                      : 'bg-black/20 hover:bg-black/40'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (!isAuthenticated) {
-                      navigate('/login')
-                      return
-                    }
-                    if (favorites.includes(product._id)) {
-                      remove(product._id)
-                    } else {
-                      saved(product._id)
-                    }
-                  }}
-                >
-                  <Heart
-                    className={`h-5 w-5 ${
-                      favorites.includes(product._id)
-                        ? 'text-white'
-                        : 'text-white'
-                    }`}
-                  />
-                </button>
-                <button className='btn btn-circle absolute top-2 left-2 h-8 w-fit rounded-xl border-0 z-0 bg-amber-400/30 text-md text-black/70 p-2 flex  items-center justify-center text-nowrap'>
-                  🌟 Tin tiêu biểu
-                </button>
+  const handleLoadMore = async () => {
+    if (!onLoadMore || isLoadingMore) return
+    setIsLoadingMore(true)
+    try {
+      await onLoadMore()
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
-                <div className='absolute bottom-0 left-0 right-0 flex justify-between items-end to-transparent px-2 py-1 rounded-b-md z-0 pointer-events-none'>
-                  <span className='text-white p-1 px-2 bg-black/40 rounded-xl text-md font-semibold'>
-                    {dayjs(product.createdAt).fromNow()}
-                  </span>
-                  <span className='flex p-1 px-2 rounded-xl text-md bg-black/40 items-center gap-1 text-white text-md font-semibold'>
-                    {Array.isArray(product.images)
-                      ? product.images.length
-                      : product.images
-                      ? 1
-                      : 0}
-                    <svg
-                      xmlns='http://www.w3.org/2000/svg'
-                      className='w-5 h-5'
-                      fill='currentColor'
-                      viewBox='0 0 20 20'
-                    >
-                      <path d='M4 3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H4zm0 2h12v10H4V5zm2 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-1 7 2.5-3 2.5 3h-5zm6 0 2-2.5 2 2.5h-4z' />
-                    </svg>
-                  </span>
-                </div>
-              </div>
-              <div className='pt-2 flex flex-col flex-1 h-full justify-between'>
-                <div>
-                  <h3 className='font-light text-xl pt-2 px-2  line-clamp-2 mb-1 text-black leading-tight'>
-                    {product.title}
-                  </h3>
-                  <div className='flex items-center justify-between mb-1'>
-                    <span className=' px-2 font-bold text-red-600 text-xl'>
-                      {product?.price?.toLocaleString()} đ
-                    </span>
-                  </div>
-                </div>
-                <div className='flex items-end text-xs text-gray-500 justify-between px-2 mb-2'>
-                  <span className='truncate items-center justify-center flex flex-row text-lg'>
-                    {' '}
-                    <MapPin className='h-7 w-7 mr-1 shrink-0' />
-                    {product.location}
-                  </span>
-                  <button className='h-7 w-7 p-0 relative flex items-center justify-center rounded-full hover:bg-gray-200'>
-                    <MoreHorizontal className='h-7 w-7 text-gray-400' />
-                  </button>
-                </div>
-              </div>
-
-              {/* <h3 className='font-semibold text-gray-800'>{product.title}</h3>
-              <p className='text-gray-500 text-sm'>{product.category}</p>
-              <p className='text-amber-600 font-bold mt-2'>
-                {product.price.toLocaleString('vi-VN')} ₫
-              </p>
-              <p className='text-xs text-gray-400 mt-1'>
-                {product.location} • {product.condition}
-              </p>
-              <p className='text-xs text-red-500 mt-2'>
-                {moment(product.postedAt).format('MMMM Do YYYY, h:mm:ss a')}
-              </p> */}
-            </div>
-          ))
-        ) : (
-          <p className='text-center col-span-full text-gray-500'>
-            Không tìm thấy sản phẩm nào phù hợp 🔍
-          </p>
-        )}
+  if (isLoading && filteredProducts.length === 0) {
+    return (
+      <div className='space-y-8'>
+        <div className='grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-5'>
+          {Array.from({ length: 10 }).map((_, i) => (
+            <ProductSkeleton key={i} />
+          ))}
+        </div>
       </div>
-      {/* data?.success && */}
-      {/* filteredProducts.length % LIMIT === 0 && */}
-      {filteredProducts.length !== 0 && (
-        <div className='text-center mt-8'>
-          <button
-            // onClick={handleLoadMore}
-            // variant='outline'
-            className='px-8 btn btn-lg bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-            // disabled={isLoading || isLoadMore}
+    )
+  }
+
+  if (!filteredProducts || filteredProducts.length === 0) {
+    return (
+      <div className='space-y-8'>
+        <div className='col-span-full text-center py-20'>
+          <div className='inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-gray-100 to-gray-50 mb-6 shadow-inner'>
+            <svg
+              className='w-10 h-10 text-gray-400'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={1.5}
+                d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+              />
+            </svg>
+          </div>
+          <h3 className='text-xl font-semibold text-gray-700 mb-2'>
+            Không tìm thấy sản phẩm
+          </h3>
+          <p className='text-gray-500 text-sm max-w-sm mx-auto'>
+            Thử điều chỉnh bộ lọc hoặc tìm kiếm với từ khóa khác
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className='space-y-8'>
+      {/* Product Grid with stagger animation */}
+      <div className='grid grid-cols-2 gap-4 md:grid-cols-3  lg:grid-cols-4 xl:grid-cols-5 md:gap-5'>
+        {filteredProducts.map((product, index) => (
+          <div
+            key={product._id}
+            className='animate-in fade-in slide-in-from-bottom-4'
+            style={{
+              animationDelay: `${index * 50}ms`,
+              animationFillMode: 'backwards'
+            }}
           >
-            {/* {(isLoading && postList.length === 0) || isLoadMore
-                ? 'Đang tải...' : */}
-            Xem thêm
-            {/* } */}
+            <PostCard
+              post={product}
+              viewMode='grid'
+              isFavorited={favorites.includes(product._id)}
+              isLoading={favoriteLoading === product._id}
+              onFavorite={() => {
+                if (!isAuthenticated) {
+                  toast.info('Bạn cần đăng nhập để yêu thích sản phẩm.')
+                  return
+                }
+                if (favorites.includes(product._id)) {
+                  remove(product._id)
+                } else {
+                  saved(product._id)
+                }
+              }}
+              onClick={() => navigate(`/product/${product._id}`)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Load More Button with loading state */}
+      {hasMore && (
+        <div className='text-center pt-4'>
+          <button
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className='group relative px-10 py-3.5 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
+          >
+            {isLoadingMore ? (
+              <span className='flex items-center gap-2'>
+                <Loader2 className='w-5 h-5 animate-spin' />
+                Đang tải...
+              </span>
+            ) : (
+              <span className='flex items-center gap-2'>
+                Xem thêm sản phẩm
+                <svg
+                  className='w-5 h-5 transition-transform group-hover:translate-y-0.5'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M19 9l-7 7-7-7'
+                  />
+                </svg>
+              </span>
+            )}
           </button>
         </div>
       )}
-    </>
+
+      {/* Loading More Skeleton */}
+      {isLoadingMore && (
+        <div className='grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-5'>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <ProductSkeleton key={`loading-${i}`} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

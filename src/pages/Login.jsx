@@ -16,7 +16,7 @@ import { z } from 'zod'
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 // ... bên trong component Login()
 const CLIENT_ID =
   '162064755179-5e475s56kn539ntm1fh6ndmgsvu1k8c8.apps.googleusercontent.com'

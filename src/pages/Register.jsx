@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider
 } from 'firebase/auth'
 import { app } from '../firebaseConfig'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import z from 'zod'

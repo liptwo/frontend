@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import UserMenu from './UserMenu'
-import {
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  Heart,
-  List,
-  MessagesSquare
-} from 'lucide-react'
+import { Bell, ChevronDown, Heart, List, MessagesSquare } from 'lucide-react'
 import logo from '../../assets/logo.png'
 import { NavbarSearch } from './NavbarSearch'
 import { NotificationDropdown } from './NotificationDropDown'
 import { useClickOutside } from '../../hooks/useClickOutside'
-import { categoriesMock } from '@/constant/constant'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { toast } from 'sonner'
+import DanhMuc from '../DanhMuc'
 
 // const categories = [
 //   {
@@ -142,6 +137,7 @@ import { categoriesMock } from '@/constant/constant'
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const location = useLocation()
+  const { user } = useAuthStore()
   const isHomePage = location.pathname === '/'
 
   useEffect(() => {
@@ -210,90 +206,25 @@ export default function Navbar() {
           <ChevronDown className='w-4 h-4 sm:w-5 sm:h-5 group-hover:opacity-70' />
 
           <div className='absolute top-full left-0 min-h-[300px] sm:left-auto w-full sm:w-[250px] md:w-[300px] sm:pt-2 hidden group-hover:flex rounded-sm z-[20]'>
-            <div className='flex flex-col bg-white rounded-sm shadow-lg w-full'>
-              {categoriesMock.map((category) => (
-                <div className='relative inline-flex items-center justify-between bg-white rounded-sm hover:bg-gray-300/70 px-3 sm:px-4 py-2 group/menu'>
-                  <span className='inline-flex items-center gap-2 sm:gap-3'>
-                    {/* <span className='text-xs sm:text-sm'>{category?.icon}</span> */}
-                    <span
-                      className='text-xs sm:text-sm'
-                      onClick={() => handleClickDM(category?.id)}
-                    >
-                      {category?.name}
-                    </span>
-                  </span>
-                  <ChevronRight className='w-4 h-4 sm:w-5 sm:h-5' />
-
-                  <div className='absolute top-0 sm:left-full w-full sm:w-[250px] md:w-[300px] hidden group-hover/menu:flex rounded-sm z-10'>
-                    <div className='flex flex-col bg-white rounded-sm shadow-lg w-full overflow-y-auto h-auto'>
-                      {!isLoading && categoriesMock?.length === 0 ? (
-                        <div className='inline-flex items-center justify-between bg-white rounded-sm hover:bg-gray-300/70 px-3 sm:px-4 py-2'>
-                          <span className='inline-flex items-center gap-2 sm:gap-3'>
-                            <span className='text-xs sm:text-sm line-clamp-1'>
-                              Không có danh mục nào
-                            </span>
-                          </span>
-                        </div>
-                      ) : (
-                        category?.children?.map((item) => (
-                          <div
-                            key={item.id}
-                            className='inline-flex items-center justify-between bg-white rounded-sm hover:bg-gray-300/70 px-3 sm:px-4 py-2'
-                          >
-                            <Link
-                              to={`/search?categoryId=${item.id}`}
-                              className='inline-flex items-center gap-2 sm:gap-3 w-full'
-                            >
-                              <span className='text-xs sm:text-sm line-clamp-1'>
-                                {item.name}
-                              </span>
-                            </Link>
-                          </div>
-                        ))
-                      )}
-                      {isLoading ||
-                        (isFetchingNextPage && (
-                          <div className='inline-flex items-center justify-center bg-white rounded-sm hover:bg-gray-300/70 px-3 sm:px-4 py-2'>
-                            <Loader className='animate-spin' />
-                          </div>
-                        ))}
-                      {hasNextPage && (
-                        <Button
-                          variant='ghost'
-                          className='w-full text-xs sm:text-sm'
-                          // onClick={() => fetchNextPage()}
-                          disabled={isFetchingNextPage}
-                        >
-                          {isFetchingNextPage ? 'Đang tải...' : 'Tải thêm'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className='bg-white rounded-md shadow-lg w-full p-4'>
+              <DanhMuc hideTitle={true} itemClass='text-sm' />
             </div>
           </div>
         </div>
         <Link className='btn md:flex hidden btn-ghost border-0 text-xl' to='/'>
           <img src={logo} className='w-18' alt='logo' />
         </Link>
-        {/* {isPostNewsPage ? null : (
-          <div className='flex text-xl items-center gap-1 cursor-pointer'>
-            <MenuDropdown />
-            <p>Danh Mục</p>
-          </div>
-        )} */}
       </div>
 
       <NavbarSearch isHomePage={isHomePage} isScrolled={isScrolled} />
       {/* Icon Section */}
       <div className='flex items-center gap-3 sm:gap-6 text-xs sm:text-sm  justify-center sm:justify-end'>
-        <div
-          className='relative sm:flex hidden order-4 sm:order-none'
-          onClick={handleToggleNotification}
-        >
+        <div className='relative sm:flex hidden order-4 sm:order-none'>
           <div className='relative'>
-            <Bell className='w-5 h-5 sm:w-7 sm:h-7 hover:opacity-70 cursor-pointer' />
+            <Bell
+              className='w-5 h-5 sm:w-7 sm:h-7 hover:opacity-70 cursor-pointer'
+              onClick={handleToggleNotification}
+            />
             {countNotificationsUnread > 0 && (
               <span className='absolute rounded-full size-5 flex items-center justify-center -top-2.5 -right-2.5 text-xs bg-app-secondary cursor-pointer text-white'>
                 {countNotificationsUnread}
@@ -310,14 +241,26 @@ export default function Navbar() {
           )}
         </div>
         <div
-          className='relative md:block hidden'
-          onClick={() => navigate('/messages')}
+          className='relative md:block hidden cursor-pointer'
+          onClick={() => {
+            if (user) {
+              navigate('/messages')
+            } else {
+              toast.info('Bạn cần đăng nhập để thực hiện hành động này')
+            }
+          }}
         >
           <MessagesSquare className='w-5 h-5 sm:w-7 sm:h-7 order-1 sm:order-none hover:opacity-70 cursor-pointer' />
         </div>
         <div
-          className='relative md:block hidden'
-          onClick={() => navigate('/favorites')}
+          className='relative md:block hidden cursor-pointer'
+          onClick={() => {
+            if (user) {
+              navigate('/favorites')
+            } else {
+              toast.info('Bạn cần đăng nhập để thực hiện hành động này')
+            }
+          }}
         >
           <Heart className='w-5 h-5 sm:w-7 sm:h-7 order-1 sm:order-none  hover:opacity-70 cursor-pointer' />
         </div>

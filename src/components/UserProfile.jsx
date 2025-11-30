@@ -5,7 +5,7 @@ import {
   fetchProvinceDetail,
   fetchWards
 } from '../Data/VNProvinces'
-import { useAuthStore } from '../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 
 function UserProfile() {
   const { user, fetchMe } = useAuthStore()

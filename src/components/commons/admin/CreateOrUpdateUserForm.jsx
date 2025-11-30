@@ -1,4 +1,4 @@
-import { uploadFileToCloudinary } from '@/services/api/cloudinary'
+import { createUserAPI, updateUserByAdminAPI } from '@/apis'
 // import { useUserMutations } from '@/services/query'
 import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { trimData } from '@/helper'
 import { useLoading } from '@/hooks'
 import { validate } from '@/lib/validation'
 import {
@@ -26,19 +25,12 @@ import {
   updateUserValidationSchema
 } from '@/lib/validation-schemas'
 
-// type Props = {
-// 	open: boolean;
-// 	isEditing: boolean;
-// 	onClose: () => void;
-// 	initialData?: IUser | null;
-// 	onSuccess: () => void;
-// };
-
 export default function CreateOrUpdateUserForm({
   open,
   onClose,
   isEditing,
-  initialData
+  initialData,
+  onSuccess
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -47,7 +39,7 @@ export default function CreateOrUpdateUserForm({
     avatar: '',
     address: '',
     phoneNumber: '',
-    bio: '',
+    displayName: '',
     dateOfBirth: '',
     gender: 'MALE',
     role: 'USER'
@@ -57,7 +49,7 @@ export default function CreateOrUpdateUserForm({
     address: '',
     bio: '',
     dateOfBirth: '',
-    email: '',
+    email: '', // Sửa: displayName thay cho name
     name: '',
     password: '',
     phoneNumber: '',
@@ -65,10 +57,6 @@ export default function CreateOrUpdateUserForm({
   })
 
   const { loading: isUploadingImage, execute: uploadImage } = useLoading()
-  // const { updateUser, createUser } = useUserMutations()
-  const updateUser = {}
-  const createUser = {}
-
   const resetFormData = () => {
     setFormData({
       name: '',
@@ -77,7 +65,7 @@ export default function CreateOrUpdateUserForm({
       avatar: '',
       address: '',
       phoneNumber: '',
-      bio: '',
+      displayName: '',
       dateOfBirth: '',
       gender: 'MALE',
       role: 'USER'
@@ -88,7 +76,7 @@ export default function CreateOrUpdateUserForm({
     setErrors({
       address: '',
       bio: '',
-      dateOfBirth: '',
+      dateOfBirth: '', // Sửa: displayName thay cho name
       email: '',
       name: '',
       password: '',
@@ -100,14 +88,14 @@ export default function CreateOrUpdateUserForm({
   useEffect(() => {
     if (initialData) {
       setFormData({
-        name: initialData.name,
+        displayName: initialData.displayName,
         email: initialData.email,
         password: '',
         avatar: initialData.avatar,
         address: initialData.address || '',
-        phoneNumber: initialData.phoneNumber || '',
-        bio: initialData.bio || '',
-        dateOfBirth: initialData.dob || '',
+        phone: initialData.phone || '',
+        username: initialData.username || '',
+        birthday: initialData.birthday || '',
         gender: initialData.gender || 'MALE',
         role: initialData.role
       })
@@ -127,87 +115,48 @@ export default function CreateOrUpdateUserForm({
     return isValid
   }
 
-  const handleUploadImage = async () => {
-    if (file) {
-      const res = await uploadFileToCloudinary(file)
-      if (res.success) {
-        return res.data.secure_url
-      } else {
-        toast.error(res.message)
-        return ''
-      }
+  const handleSubmit = async () => {
+    if (isEditing) {
+      await handleUpdateUser()
+    } else {
+      await handleCreateUser()
     }
   }
 
-  const handleSubmit = async () => {
-    await uploadImage(async () => {
-      if (isEditing) {
-        await handleUpdateUser()
-      } else {
-        handleCreateUser()
+  const handleUpdateUser = async () => {
+    // Simple validation for now
+    if (!formData.displayName) {
+      return toast.error('Tên hiển thị không được để trống.')
+    }
+    try {
+      const payload = {
+        displayName: formData.displayName,
+        phone: formData.phone,
+        address: formData.address,
+        gender: formData.gender,
+        role: formData.role
       }
-    })
+      await updateUserByAdminAPI(initialData._id, payload)
+      toast.success('Cập nhật người dùng thành công!')
+      onSuccess()
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Cập nhật thất bại.')
+    }
   }
 
-  // const handleUpdateUser = async () => {
-  //   const isValid = handleValidateForm(updateUserValidationSchema)
-  //   if (!initialData?.id || !isValid) return
-
-  //   const avatar = (await handleUploadImage()) || formData.avatar
-  //   // const { email, password, role, ...trimmedFormData } =
-  //   //   trimData < typeof formData > formData
-  //   // updateUser.mutate(
-  //   //   {
-  //   //     id: initialData.id,
-  //   //     data: {
-  //   //       ...trimmedFormData,
-  //   //       avatar,
-  //   //       ...(trimmedFormData.dateOfBirth && {
-  //   //         dateOfBirth: trimmedFormData.dateOfBirth
-  //   //           ? new Date(trimmedFormData.dateOfBirth).toISOString()
-  //   //           : ''
-  //   //       })
-  //   //     }
-  //   //   },
-  //   //   {
-  //   //     onSuccess: (res) => {
-  //   //       if (res.data.success) {
-  //   //         onClose()
-  //   //         resetErrors()
-  //   //         setFile(undefined)
-  //   //       }
-  //   //     }
-  //   //   }
-  //   // )
-  // }
-  const handleUpdateUser = async () => {}
-
-  // const handleCreateUser = () => {
-  //   const isValid = handleValidateForm(createUserValidationSchema)
-  //   if (!isValid) return
-
-  //   const { avatar, ...trimmedFormData } = trimData < typeof formData > formData
-  //   if (trimmedFormData.dateOfBirth) {
-  //     trimmedFormData.dateOfBirth = new Date(
-  //       trimmedFormData.dateOfBirth
-  //     ).toISOString()
-  //   }
-
-  //   createUser.mutate(
-  //     {
-  //       ...trimmedFormData
-  //     },
-  //     {
-  //       onSuccess: (res) => {
-  //         if (!res.data.success) return
-
-  //         onClose()
-  //         resetFormData()
-  //       }
-  //     }
-  //   )
-  // }
-  const handleCreateUser = () => {}
+  const handleCreateUser = async () => {
+    // Simple validation for now
+    if (!formData.email || !formData.password || !formData.username) {
+      return toast.error('Email, mật khẩu và username là bắt buộc.')
+    }
+    try {
+      await createUserAPI(formData)
+      toast.success('Tạo người dùng thành công!')
+      onSuccess()
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Tạo người dùng thất bại.')
+    }
+  }
 
   const handleAvatarChange = async (file) => {
     const imageURL = URL.createObjectURL(file)
@@ -224,7 +173,7 @@ export default function CreateOrUpdateUserForm({
         </DialogHeader>
 
         <div className='space-y-3'>
-          {isEditing && (
+          {/* {isEditing && (
             <div className='space-y-1 flex flex-col items-center'>
               <label className='block text-sm font-medium'>Avatar</label>
               {formData.avatar && (
@@ -252,12 +201,12 @@ export default function CreateOrUpdateUserForm({
                 </label>
               </Button>
             </div>
-          )}
+          )} */}
           <Input
-            placeholder='Tên'
-            name='name'
-            disabled={updateUser.isPending || isUploadingImage}
-            value={formData.name}
+            placeholder='Tên hiển thị'
+            name='displayName'
+            disabled={isUploadingImage}
+            value={formData.displayName}
             onChange={handleChange}
           />
           {errors['name'] && (
@@ -266,7 +215,7 @@ export default function CreateOrUpdateUserForm({
           <Input
             placeholder='Email'
             name='email'
-            disabled={isEditing}
+            disabled={isEditing || isUploadingImage}
             value={formData.email}
             onChange={handleChange}
           />
@@ -276,9 +225,20 @@ export default function CreateOrUpdateUserForm({
           {!isEditing && (
             <>
               <Input
+                placeholder='Tên đăng nhập'
+                name='username'
+                disabled={isUploadingImage}
+                value={formData.username}
+                onChange={handleChange}
+              />
+              {errors['username'] && (
+                <p className='text-xs text-red-500'>{errors['username']}</p>
+              )}
+              <Input
                 placeholder='Mật khẩu'
                 name='password'
-                disabled={updateUser.isPending || isUploadingImage}
+                type='password'
+                disabled={isUploadingImage}
                 value={formData.password}
                 onChange={handleChange}
               />
@@ -291,7 +251,7 @@ export default function CreateOrUpdateUserForm({
           <Input
             placeholder='Địa chỉ'
             name='address'
-            disabled={updateUser.isPending || isUploadingImage}
+            disabled={isUploadingImage}
             value={formData.address}
             onChange={handleChange}
           />
@@ -299,32 +259,27 @@ export default function CreateOrUpdateUserForm({
             <p className='text-xs text-red-500'>{errors['address']}</p>
           )}
           <Input
-            type='number'
+            type='text'
             placeholder='SĐT'
-            name='phoneNumber'
-            disabled={updateUser.isPending || isUploadingImage}
-            value={formData.phoneNumber}
+            name='phone'
+            disabled={isUploadingImage}
+            value={formData.phone}
             onChange={handleChange}
           />
           {errors['phoneNumber'] && (
             <p className='text-xs text-red-500'>{errors['phoneNumber']}</p>
           )}
-          <Input
-            placeholder='Tiểu sử'
-            name='bio'
-            disabled={updateUser.isPending || isUploadingImage}
-            value={formData.bio}
-            onChange={handleChange}
-          />
-          {errors['bio'] && (
-            <p className='text-xs text-red-500'>{errors['bio']}</p>
-          )}
+
           <Input
             placeholder='Ngày sinh'
-            name='dateOfBirth'
+            name='birthday'
             type='date'
-            disabled={updateUser.isPending || isUploadingImage}
-            value={formData.dateOfBirth}
+            disabled={isUploadingImage}
+            value={
+              formData.birthday
+                ? new Date(formData.birthday).toISOString().split('T')[0]
+                : ''
+            }
             onChange={handleChange}
           />
           {errors['dateOfBirth'] && (
@@ -332,7 +287,7 @@ export default function CreateOrUpdateUserForm({
           )}
 
           <Select
-            disabled={updateUser.isPending || isUploadingImage}
+            disabled={isUploadingImage}
             value={formData.gender}
             onValueChange={(val) => setFormData({ ...formData, gender: val })}
           >
@@ -350,7 +305,7 @@ export default function CreateOrUpdateUserForm({
           )}
 
           <Select
-            disabled={isEditing}
+            disabled={isUploadingImage}
             value={formData.role}
             onValueChange={(val) => setFormData({ ...formData, role: val })}
           >
@@ -368,15 +323,12 @@ export default function CreateOrUpdateUserForm({
           <Button
             variant='outline'
             onClick={onClose}
-            disabled={updateUser.isPending || isUploadingImage}
+            disabled={isUploadingImage}
           >
             Hủy
           </Button>
-          <Button
-            disabled={updateUser.isPending || isUploadingImage}
-            onClick={handleSubmit}
-          >
-            {updateUser.isPending || isUploadingImage
+          <Button disabled={isUploadingImage} onClick={handleSubmit}>
+            {isUploadingImage
               ? 'Đang lưu...'
               : isEditing
               ? 'Cập nhật'

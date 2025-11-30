@@ -18,22 +18,35 @@ import UserManagement from './pages/admin/UserManagement'
 import PostManagement from './pages/admin/PostManagement'
 import CategoryManagement from './pages/admin/CategoryManagement'
 import SearchResults from './pages/SearchResults'
+import { Navigate } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
+
+import { useAuthStore } from './stores/useAuthStore'
 
 function App() {
+  const AuthRoute = () => {
+    const { user } = useAuthStore()
+    if (!user) {
+      return <Navigate to='/' />
+    }
+    return <Outlet />
+  }
+
   return (
     <Routes>
       {/* Layout chung có Navbar */}
       <Route element={<Layout />}>
         <Route path='/' element={<Home />} />
         <Route path='/search' element={<SearchResults />} />
-        <Route path='/PostNews' element={<PostNews />} />
-        <Route path='/ManagePost' element={<ManagePost />} />
-        <Route path='/ListSp' element={<ListSp />} />
-        <Route path='/profile' element={<UserProfile />} />
-        <Route path='/myposts' element={<MyPosts />} />
-        <Route path='/product/:id' element={<ProductPage />} />
-        <Route path='/messages' element={<ChatPage />} />
-        <Route path='/favorites' element={<FavouritesPage />} />
+        <Route path='/post/:id' element={<ProductPage />} />
+        <Route element={<AuthRoute />}>
+          <Route path='/PostNews' element={<PostNews />} />
+          <Route path='/ManagePost' element={<ManagePost />} />
+          <Route path='/profile' element={<UserProfile />} />
+          <Route path='/myposts' element={<MyPosts />} />
+          <Route path='/messages' element={<ChatPage />} />
+          <Route path='/favorites' element={<FavouritesPage />} />
+        </Route>
       </Route>
 
       <Route path='/admin' element={<AdminLayout />}>

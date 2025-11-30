@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import React from 'react'
-import { useAuthStore } from '../../stores/useAuthStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 export function NotificationDropdown({
   notificationRef,
   onClose,

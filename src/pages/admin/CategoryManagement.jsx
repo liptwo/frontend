@@ -1,3 +1,5 @@
+'use client'
+
 import {
   CategoryDetail,
   CategoryTable,
@@ -5,8 +7,7 @@ import {
 } from '@/components/commons/admin'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
-import React from 'react'
+import React, { useState } from 'react'
 export default function CategoryManagement() {
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [formOpen, setFormOpen] = useState(false)

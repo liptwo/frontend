@@ -1,6 +1,6 @@
 import { PostCard } from '@/components/commons/PostCard'
 import { Button } from '@/components/ui/button'
-import { searchListingsAPI } from '@/apis'
+import { getCategoriesAPI, searchListingsAPI } from '@/apis'
 
 import ListSp from '@/components/ListSp'
 import { Input } from '@/components/ui/input'
@@ -26,10 +26,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SORT_OPTIONS } from '@/pages/admin/PostManagement'
-import { categoriesMock, products } from '@/constant/constant'
 import React from 'react'
-
-const ITEMS_PER_PAGE = 10
 
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -57,6 +54,9 @@ export default function SearchResults() {
   const [searchResults, setSearchResults] = useState([])
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [pagination, setPagination] = useState(null)
+  const [catLoading, setCatLoading] = useState(false)
 
   const debouncedSearch = useDebounce(searchTerm, 500)
 
@@ -89,6 +89,15 @@ export default function SearchResults() {
       return next
     })
   }, [debouncedSearch, setSearchParams])
+
+  const handleCategoryChange = (v) => {
+    setCatInput(v)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      writeOrDelete(next, 'categoryId', v, (val) => !val || val === 'all')
+      return next
+    })
+  }
 
   const handleLocationChange = (v) => {
     setLocationInput(v)
@@ -126,7 +135,6 @@ export default function SearchResults() {
     if (priceError) return
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
-      writeOrDelete(next, 'categoryId', catInput, (v) => !v || v === 'all')
       writeOrDelete(next, 'minPrice', minInput, (v) => !v)
       writeOrDelete(next, 'maxPrice', maxInput, (v) => !v)
       return next
@@ -149,10 +157,12 @@ export default function SearchResults() {
     }
   }, [searchParams])
 
-  const catLoading = false
-  const categories = categoriesMock
-  const categoryName = ''
-  const hasNextPage = false
+  const categoryName = useMemo(() => {
+    if (!applied.categoryId || categories.length === 0) return ''
+    const foundCategory = categories.find((c) => c._id === applied.categoryId)
+    return foundCategory ? foundCategory.name : ''
+  }, [applied.categoryId, categories])
+
   const hasFilters = !!(
     applied.q ||
     applied.location ||
@@ -163,15 +173,17 @@ export default function SearchResults() {
     applied.sortOrder !== 'desc'
   )
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchInitialData = async () => {
+      setCatLoading(true)
       try {
         const res = await getCategoriesAPI()
         setCategories(res)
+        setCatLoading(false)
       } catch (error) {
         console.error('Failed to fetch categories', error)
       }
     }
-    fetchCategories()
+    fetchInitialData()
   }, [])
 
   useEffect(() => {
@@ -180,8 +192,9 @@ export default function SearchResults() {
       setError(null)
       try {
         const params = Object.fromEntries(searchParams.entries())
-        const results = await searchListingsAPI(params)
-        setSearchResults(results)
+        const response = await searchListingsAPI(params)
+        setSearchResults(response.data)
+        setPagination(response.pagination)
       } catch (err) {
         setError(err)
         console.error('Failed to search listings:', err)
@@ -192,6 +205,15 @@ export default function SearchResults() {
 
     performSearch()
   }, [searchParams])
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('page', newPage)
+      return next
+    })
+  }
 
   const formatPrice = (price) =>
     price ? Number(price).toLocaleString('vi-VN') : ''
@@ -260,7 +282,7 @@ export default function SearchResults() {
           <div className='w-full sm:w-64'>
             <Select
               value={catInput}
-              onValueChange={setCatInput}
+              onValueChange={handleCategoryChange}
               disabled={catLoading}
             >
               <SelectTrigger>
@@ -424,6 +446,7 @@ export default function SearchResults() {
             {/* Apply */}
             <div className='col-span-full flex justify-end'>
               <Button onClick={handleApply} disabled={!!priceError}>
+                <Filter className='w-4 h-4 mr-2' />
                 Áp dụng
               </Button>
             </div>
@@ -454,14 +477,50 @@ export default function SearchResults() {
             ))}
           </div>
         ) : (
-          <ListSp filteredProducts={searchResults} />
+          <>
+            {searchResults.length > 0 ? (
+              viewMode === 'grid' ? (
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'>
+                  {searchResults.map((post) => (
+                    <PostCard key={post._id} post={post} viewMode='grid' />
+                  ))}
+                </div>
+              ) : (
+                <div className='space-y-4'>
+                  {searchResults.map((post) => (
+                    <PostCard key={post._id} post={post} viewMode='list' />
+                  ))}
+                </div>
+              )
+            ) : (
+              <p className='text-center text-gray-500 py-8'>
+                Không tìm thấy kết quả nào.
+              </p>
+            )}
+          </>
         )}
 
         {/* Load more */}
-        {hasNextPage && (
-          <div className='flex justify-center pt-6'>
-            <Button onClick={() => {}} disabled={isFetching}>
-              {isFetching ? 'Đang tải...' : 'Tải thêm'}
+        {pagination && pagination.totalPages > 1 && (
+          <div className='flex justify-center items-center gap-4 pt-6'>
+            <Button
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage === 1 || isFetching}
+              variant='outline'
+            >
+              Trang trước
+            </Button>
+            <span className='text-sm text-gray-600'>
+              Trang {pagination.currentPage} / {pagination.totalPages}
+            </span>
+            <Button
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={
+                pagination.currentPage === pagination.totalPages || isFetching
+              }
+              variant='outline'
+            >
+              Trang sau
             </Button>
           </div>
         )}

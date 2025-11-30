@@ -1,211 +1,282 @@
+'use client'
+
 import { useState, useEffect } from 'react'
+import { fetchProvinces, fetchProvinceDetail } from '@/Data/VNProvinces'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { MapPin, Home, Building2, Map } from 'lucide-react'
+import { toast } from 'sonner'
 import React from 'react'
+
 export function AddressDialog({ isOpen, onClose, onSave, initialAddress }) {
-  const [province, setProvince] = useState('')
-  const [provinceLabel, setProvinceLabel] = useState('')
-  const [ward, setWard] = useState('')
-  const [wardLabel, setWardLabel] = useState('')
+  // State for selected values
+  const [provinceCode, setProvinceCode] = useState('')
+  const [districtCode, setDistrictCode] = useState('')
+  const [wardCode, setWardCode] = useState('')
   const [specificAddress, setSpecificAddress] = useState('')
 
-  // Mock data - replace with your actual API calls
-  const provinces = [
-    { id: '01', name: 'Hà Nội' },
-    { id: '02', name: 'Hồ Chí Minh' },
-    { id: '03', name: 'Đà Nẵng' },
-    { id: '04', name: 'Hải Phòng' },
-    { id: '05', name: 'Cần Thơ' },
-    { id: '06', name: 'Quảng Trị' }
-  ]
-
-  const wardsByProvince = {
-    '01': [
-      { id: '001', name: 'Ba Đình' },
-      { id: '002', name: 'Hoàn Kiếm' },
-      { id: '003', name: 'Tây Hồ' },
-      { id: '004', name: 'Cầu Giấy' }
-    ],
-    '02': [
-      { id: '101', name: 'Quận 1' },
-      { id: '102', name: 'Quận 2' },
-      { id: '103', name: 'Quận 3' },
-      { id: '104', name: 'Quận 4' }
-    ],
-    '03': [
-      { id: '201', name: 'Hải Châu' },
-      { id: '202', name: 'Thanh Khê' },
-      { id: '203', name: 'Sơn Trà' },
-      { id: '204', name: 'Ngũ Hành Sơn' }
-    ],
-    '04': [
-      { id: '301', name: 'Hồng Bàng' },
-      { id: '302', name: 'Ngô Quyền' },
-      { id: '303', name: 'Lê Chân' },
-      { id: '304', name: 'Kiến An' }
-    ],
-    '05': [
-      { id: '401', name: 'Ninh Kiều' },
-      { id: '402', name: 'Bình Thủy' },
-      { id: '403', name: 'Cái Răng' },
-      { id: '404', name: 'Ô Môn' }
-    ],
-    '06': [
-      { id: '501', name: 'Bắc Trạch' },
-      { id: '502', name: 'Vĩnh Linh' },
-      { id: '503', name: 'Đakrông' },
-      { id: '504', name: 'Gio Linh' }
-    ]
-  }
+  // State for lists from API
+  const [provincesList, setProvincesList] = useState([])
+  const [districtsList, setDistrictsList] = useState([])
+  const [wardsList, setWardsList] = useState([])
 
   useEffect(() => {
     if (initialAddress) {
-      setProvince(initialAddress.province || '')
-      setProvinceLabel(initialAddress.provinceLabel || '')
-      setWard(initialAddress.ward || '')
-      setWardLabel(initialAddress.wardLabel || '')
+      setProvinceCode(initialAddress.provinceCode || '')
+      setDistrictCode(initialAddress.districtCode || '')
+      setWardCode(initialAddress.wardCode || '')
       setSpecificAddress(initialAddress.specificAddress || '')
     }
   }, [initialAddress, isOpen])
 
-  const handleProvinceChange = (e) => {
-    const selectedId = e.target.value
-    const selectedProvince = provinces.find((p) => p.id === selectedId)
-    setProvince(selectedId)
-    setProvinceLabel(selectedProvince?.name || '')
-    setWard('')
-    setWardLabel('')
-  }
+  // Fetch provinces on mount
+  useEffect(() => {
+    const loadProvinces = async () => {
+      const data = await fetchProvinces()
+      setProvincesList(data || [])
+    }
+    loadProvinces()
+  }, [])
 
-  const handleWardChange = (e) => {
-    const selectedId = e.target.value
-    const wards = wardsByProvince[province] || []
-    const selectedWard = wards.find((w) => w.id === selectedId)
-    setWard(selectedId)
-    setWardLabel(selectedWard?.name || '')
-  }
+  // Fetch districts when province changes
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (provinceCode) {
+        const provinceDetail = await fetchProvinceDetail(provinceCode)
+        setDistrictsList(provinceDetail?.districts || [])
+      } else {
+        setDistrictsList([])
+      }
+      setDistrictCode('')
+      setWardsList([])
+      setWardCode('')
+    }
+    loadDistricts()
+  }, [provinceCode])
+
+  // Fetch wards when district changes
+  useEffect(() => {
+    const loadWards = async () => {
+      if (districtCode) {
+        const selectedDistrict = districtsList.find(
+          (d) => d.code == districtCode
+        )
+        setWardsList(selectedDistrict?.wards || [])
+      } else {
+        setWardsList([])
+      }
+      setWardCode('')
+    }
+    loadWards()
+  }, [districtCode, districtsList])
 
   const handleSave = () => {
-    if (!province || !ward || !specificAddress.trim()) {
-      alert('Vui lòng điền đầy đủ thông tin địa chỉ')
+    if (
+      !provinceCode ||
+      !districtCode ||
+      !wardCode ||
+      !specificAddress.trim()
+    ) {
+      toast.error('Vui lòng điền đầy đủ thông tin địa chỉ')
       return
     }
 
+    const province = provincesList.find((p) => p.code == provinceCode)
+    const district = districtsList.find((d) => d.code == districtCode)
+    const ward = wardsList.find((w) => w.code == wardCode)
+
     onSave({
-      province,
-      provinceLabel,
-      ward,
-      wardLabel,
+      province: provinceCode,
+      provinceLabel: province?.name || '',
+      district: districtCode,
+      districtLabel: district?.name || '',
+      ward: wardCode,
+      wardLabel: ward?.name || '',
       specificAddress
     })
+
+    toast.success('Đã cập nhật địa chỉ thành công')
   }
 
-  const currentWards = wardsByProvince[province] || []
-
-  if (!isOpen) return null
-
   return (
-    <>
-      {/* Modal Backdrop */}
-      <div
-        className='fixed inset-0 bg-black bg-opacity-50 z-40'
-        onClick={onClose}
-      ></div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className='sm:max-w-[500px] max-h-[90vh] overflow-y-auto'>
+        <DialogHeader>
+          <div className='flex items-center gap-3'>
+            <div className='w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center'>
+              <MapPin className='w-5 h-5 text-white' />
+            </div>
+            <div>
+              <DialogTitle className='text-2xl'>Chọn địa chỉ</DialogTitle>
+              <DialogDescription>
+                Vui lòng điền đầy đủ thông tin địa chỉ của bạn
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-      {/* Modal */}
-      <div className='fixed inset-0 flex items-center justify-center z-50 p-4'>
-        <div className='bg-white rounded-lg shadow-2xl w-full max-w-md'>
-          {/* Modal Header */}
-          <div className='flex items-center justify-between p-6 border-b-2 border-gray-200'>
-            <h2 className='text-xl font-bold text-gray-900'>Địa chỉ</h2>
-            <button
-              onClick={onClose}
-              className='text-gray-400 hover:text-gray-600 text-3xl leading-none font-light'
+        <div className='space-y-5 py-4'>
+          {/* Province Select */}
+          <div className='space-y-2'>
+            <Label
+              htmlFor='province'
+              className='flex items-center gap-2 text-sm font-semibold'
             >
-              ×
-            </button>
+              <Map className='w-4 h-4 text-blue-600' />
+              Tỉnh, Thành phố
+              <span className='text-red-500'>*</span>
+            </Label>
+            <Select value={provinceCode} onValueChange={setProvinceCode}>
+              <SelectTrigger id='province' className='h-11'>
+                <SelectValue placeholder='Chọn tỉnh, thành phố' />
+              </SelectTrigger>
+              <SelectContent>
+                {provincesList.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Modal Body */}
-          <div className='p-6 space-y-5'>
-            {/* Province Select */}
-            <div>
-              <label className='form-control w-full'>
-                <div className='label pb-2'>
-                  <span className='label-text font-semibold text-gray-700'>
-                    Tỉnh, Thành phố <span className='text-red-500'>*</span>
-                  </span>
-                </div>
-                <select
-                  value={province}
-                  onChange={handleProvinceChange}
-                  className='select select-bordered w-full bg-white border-gray-300 focus:border-blue-500'
-                >
-                  <option value=''>Chọn tỉnh, thành phố</option>
-                  {provinces.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {/* Ward Select */}
-            <div>
-              <label className='form-control w-full'>
-                <div className='label pb-2'>
-                  <span className='label-text font-semibold text-gray-700'>
-                    Phường, Xã, Thị trấn <span className='text-red-500'>*</span>
-                  </span>
-                </div>
-                <select
-                  value={ward}
-                  onChange={handleWardChange}
-                  className='select select-bordered w-full bg-white border-gray-300 focus:border-blue-500'
-                  disabled={!province}
-                >
-                  <option value=''>
-                    {province ? 'Chọn phường, xã, thị trấn' : 'Chọn tỉnh trước'}
-                  </option>
-                  {currentWards.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {/* Specific Address */}
-            <div>
-              <label className='form-control w-full'>
-                <div className='label pb-2'>
-                  <span className='label-text font-semibold text-gray-700'>
-                    Địa chỉ cụ thể <span className='text-red-500'>*</span>
-                  </span>
-                </div>
-                <input
-                  type='text'
-                  placeholder='Địa chỉ cụ thể'
-                  className='input input-bordered w-full bg-white border-gray-300 focus:border-blue-500'
-                  value={specificAddress}
-                  onChange={(e) => setSpecificAddress(e.target.value)}
+          {/* District Select */}
+          <div className='space-y-2'>
+            <Label
+              htmlFor='district'
+              className='flex items-center gap-2 text-sm font-semibold'
+            >
+              <Building2 className='w-4 h-4 text-purple-600' />
+              Quận, Huyện, Thị xã
+              <span className='text-red-500'>*</span>
+            </Label>
+            <Select
+              value={districtCode}
+              onValueChange={setDistrictCode}
+              disabled={!provinceCode}
+            >
+              <SelectTrigger
+                id='district'
+                className='h-11'
+                disabled={!provinceCode}
+              >
+                <SelectValue
+                  placeholder={
+                    provinceCode ? 'Chọn quận, huyện' : 'Chọn tỉnh trước'
+                  }
                 />
-              </label>
-            </div>
+              </SelectTrigger>
+              <SelectContent>
+                {districtsList.map((d) => (
+                  <SelectItem key={d.code} value={d.code}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Modal Footer */}
-          <div className='p-6 border-t-2 border-gray-200'>
-            <button
-              onClick={handleSave}
-              className='btn w-full bg-orange-500 hover:bg-orange-600 border-0 text-white font-bold text-lg rounded-md'
+          {/* Ward Select */}
+          <div className='space-y-2'>
+            <Label
+              htmlFor='ward'
+              className='flex items-center gap-2 text-sm font-semibold'
             >
-              XONG
-            </button>
+              <MapPin className='w-4 h-4 text-green-600' />
+              Phường, Xã, Thị trấn
+              <span className='text-red-500'>*</span>
+            </Label>
+            <Select
+              value={wardCode}
+              onValueChange={setWardCode}
+              disabled={!districtCode}
+            >
+              <SelectTrigger
+                id='ward'
+                className='h-11'
+                disabled={!districtCode}
+              >
+                <SelectValue
+                  placeholder={
+                    districtCode ? 'Chọn phường, xã' : 'Chọn quận/huyện trước'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {wardsList.map((w) => (
+                  <SelectItem key={w.code} value={w.code}>
+                    {w.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Specific Address */}
+          <div className='space-y-2'>
+            <Label
+              htmlFor='address'
+              className='flex items-center gap-2 text-sm font-semibold'
+            >
+              <Home className='w-4 h-4 text-orange-600' />
+              Địa chỉ cụ thể
+              <span className='text-red-500'>*</span>
+            </Label>
+            <Input
+              id='address'
+              type='text'
+              placeholder='Ví dụ: Số 123, đường ABC...'
+              className='h-11'
+              value={specificAddress}
+              onChange={(e) => setSpecificAddress(e.target.value)}
+            />
+          </div>
+
+          {/* Info Box */}
+          <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+            <p className='text-sm text-blue-800'>
+              <span className='font-semibold'>Lưu ý:</span> Vui lòng điền đầy đủ
+              và chính xác thông tin địa chỉ để việc giao dịch được thuận lợi
+              hơn.
+            </p>
           </div>
         </div>
-      </div>
-    </>
+
+        <DialogFooter className='gap-2 sm:gap-0'>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onClose}
+            className='flex-1 sm:flex-none bg-transparent'
+          >
+            Hủy
+          </Button>
+          <Button
+            type='button'
+            onClick={handleSave}
+            className='flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+          >
+            Xác nhận
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
