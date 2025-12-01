@@ -1,17 +1,15 @@
 import React from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, Outlet } from 'react-router-dom'
 import Login from './Login'
 import Register from './Register'
 import bgImage from '../assets/login_sale.jpg'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useNavigate } from 'react-router-dom'
-
 const Auth = () => {
   const currentUser = useAuthStore((state) => state.user)
 
   const location = useLocation()
   const navigate = useNavigate()
-  const isLogin = location.pathname === '/login'
   if (currentUser) {
     return <Navigate to='/' replace={true} />
   }
@@ -39,7 +37,7 @@ const Auth = () => {
         {' '}
         Quay lại trang chủ{' '}
       </div>
-      {isLogin ? <Login /> : <Register />}
+      <Outlet />
     </section>
   )
 }
