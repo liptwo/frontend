@@ -20,6 +20,8 @@ import CategoryManagement from './pages/admin/CategoryManagement'
 import SearchResults from './pages/SearchResults'
 import { Navigate } from 'react-router-dom'
 import { Outlet } from 'react-router-dom'
+import Login from './page/Login'
+import Register from './page/Register'
 
 import { useAuthStore } from './stores/useAuthStore'
 
@@ -58,8 +60,11 @@ function App() {
         <Route path='reviews-management' element={<ReviewManagement />} /> */}
       </Route>
       {/* Trang không dùng Navbar */}
-      <Route path='/login' element={<Auth />} />
-      <Route path='/signup' element={<Auth />} />
+      <Route element={<Auth/>
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Register />} />
+      </Route>
+
       <Route
         path='/*'
         element={
