@@ -20,8 +20,8 @@ import CategoryManagement from './pages/admin/CategoryManagement'
 import SearchResults from './pages/SearchResults'
 import { Navigate } from 'react-router-dom'
 import { Outlet } from 'react-router-dom'
-import Login from './page/Login'
-import Register from './page/Register'
+import Login from './pages/Login'
+import Register from './pages/Register'
 
 import { useAuthStore } from './stores/useAuthStore'
 
