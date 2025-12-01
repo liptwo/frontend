@@ -59,7 +59,7 @@ function App() {
       </Route>
       {/* Trang không dùng Navbar */}
       <Route path='/login' element={<Auth />} />
-      <Route path='/register' element={<Auth />} />
+      <Route path='/signup' element={<Auth />} />
       <Route
         path='/*'
         element={
