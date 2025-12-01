@@ -60,7 +60,7 @@ function App() {
         <Route path='reviews-management' element={<ReviewManagement />} /> */}
       </Route>
       {/* Trang không dùng Navbar */}
-      <Route element={<Auth/>
+      <Route element={<Auth />}>
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
       </Route>
